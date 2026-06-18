@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Transaction Splitter</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#6366f1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Splitter">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  color: #1e293b;
+  background: #f1f5f9;
+  padding: 24px 16px 56px;
+  line-height: 1.5;
+}
+
+h1 {
+  font-size: 22px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 20px;
+}
+
+h2 {
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07), 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.overflow-x { overflow-x: auto; }
+
+table { border-collapse: collapse; width: 100%; font-size: 13px; }
+
+thead th {
+  padding: 8px 10px;
+  text-align: right;
+  background: #f8fafc;
+  color: #64748b;
+  font-weight: 600;
+  font-size: 12px;
+  border-bottom: 2px solid #e2e8f0;
+  white-space: nowrap;
+  user-select: none;
+}
+thead th.th-left  { text-align: left; }
+thead th.th-center { text-align: center; }
+
+tbody td {
+  padding: 5px 6px;
+  border-bottom: 1px solid #f1f5f9;
+  text-align: right;
+  vertical-align: middle;
+}
+tbody td.td-left   { text-align: left; }
+tbody td.td-center { text-align: center; }
+tbody tr:last-child td { border-bottom: none; }
+
+td.computed {
+  background: #f8fafc;
+  color: #475569;
+  font-variant-numeric: tabular-nums;
+}
+
+tr.totals-row td {
+  font-weight: 700;
+  background: #f0f4ff;
+  border-top: 2px solid #c7d2fe;
+  color: #1e293b;
+}
+tr.totals-row td.computed { background: #e8edff; }
+
+input[type="text"] {
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 4px 7px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #fff;
+  display: block;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+input[type="text"]:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+select {
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-family: inherit;
+  background: #fff;
+  color: #1e293b;
+  cursor: pointer;
+  transition: border-color 0.12s;
+}
+select:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+.num-input  { text-align: right; width: 82px; }
+.wide-input { width: 118px; }
+.frac-sel   { width: 66px; }
+
+.remove-btn {
+  background: #fef2f2;
+  color: #ef4444;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.4;
+  transition: background 0.1s;
+}
+.remove-btn:hover { background: #fee2e2; }
+
+.btn-row { display: flex; gap: 8px; margin-top: 14px; }
+
+.btn-primary {
+  background: #6366f1;
+  color: #fff;
+  border: none;
+  border-radius: 7px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.btn-primary:hover { background: #4f46e5; }
+
+.btn-secondary {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  padding: 9px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+.btn-secondary:hover { background: #e2e8f0; }
+.btn-secondary.btn-danger {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+.btn-secondary.btn-danger:hover { background: #dc2626; }
+
+.tf-row {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.tf-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #475569;
+}
+.tf-field input {
+  width: 120px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 14px;
+  font-family: inherit;
+  text-align: right;
+  background: #fff;
+  color: #1e293b;
+  transition: border-color 0.12s, box-shadow 0.12s;
+}
+.tf-field input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+
+.empty-state {
+  color: #94a3b8;
+  font-style: italic;
+  font-size: 13px;
+  padding: 6px 0;
+}
+
+.num-input.rate-input { width: 56px; }
+.num-input:disabled {
+  background: #f1f5f9;
+  color: #cbd5e1;
+  border-color: #eef2f7;
+  cursor: not-allowed;
+}
+input[type="checkbox"].tax-check {
+  width: 17px;
+  height: 17px;
+  accent-color: #6366f1;
+  cursor: pointer;
+  vertical-align: middle;
+}
+
+/* Tabs */
+.tabs { display: flex; gap: 6px; margin-bottom: 14px; }
+.tab-btn {
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.tab-btn.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+
+td.computed.strong { font-weight: 700; color: #1e293b; }
+.muted { color: #cbd5e1; }
+
+/* Grouped (per-assignee) cards */
+.grp {
+  border: 1px solid #eef2f7;
+  border-radius: 9px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+.grp:last-child { margin-bottom: 0; }
+.grp-head {
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+.grp-line {
+  display: flex;
+  justify-content: space-between;
+  color: #475569;
+  font-size: 13px;
+  padding: 2px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* People roster */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #eef2ff;
+  color: #4338ca;
+  border: 1px solid #c7d2fe;
+  border-radius: 999px;
+  padding: 4px 6px 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.chip-x {
+  border: none;
+  background: #c7d2fe;
+  color: #3730a3;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  line-height: 1;
+  font-size: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chip-x:hover { background: #a5b4fc; }
+.people-add { display: flex; gap: 8px; align-items: center; }
+.people-add input[type="text"] { flex: 1; max-width: 240px; width: auto; }
+
+select.asgn-sel, select.cat-sel { width: 132px; }
+
+@media print {
+  body { background: #fff; padding: 0; }
+  .card { box-shadow: none; border: 1px solid #e2e8f0; break-inside: avoid; }
+  .no-print, .btn-row, .tabs, .remove-btn { display: none !important; }
+  /* Show both category views when printing. */
+  #cat-view-grouped, #cat-view-matrix { display: block !important; }
+  /* Flatten inputs/selects to plain text so they read like a report. */
+  input, select {
+    border: none !important; box-shadow: none !important; padding: 0 !important;
+    -webkit-appearance: none; appearance: none; background: transparent !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-18e</span></h1>
+
+<!-- ── Main transactions ── -->
+<div class="card">
+  <h2>Transactions</h2>
+  <div class="overflow-x">
+    <table>
+      <thead>
+        <tr>
+          <th>Amount ($)</th>
+          <th class="th-center">Taxed</th>
+          <th>Rate %</th>
+          <th class="th-left">Assignee</th>
+          <th class="th-left">Category</th>
+          <th class="th-center">Fraction</th>
+          <th>Effective</th>
+          <th>Tax</th>
+          <th>Row Total</th>
+          <th class="th-center" style="width:42px"></th>
+        </tr>
+      </thead>
+      <tbody id="main-tbody"></tbody>
+    </table>
+  </div>
+  <div class="btn-row">
+    <button class="btn-primary"   id="add-row-btn">+ Add Row</button>
+    <button class="btn-secondary" id="clear-btn">Clear All</button>
+  </div>
+</div>
+
+<!-- ── People roster ── -->
+<div class="card no-print">
+  <h2>People</h2>
+  <div id="people-chips" class="chips"></div>
+  <div class="people-add">
+    <input type="text" id="people-input" placeholder="Add a name…">
+    <button class="btn-secondary" id="people-add-btn">Add</button>
+  </div>
+</div>
+
+<!-- ── Category roster ── -->
+<div class="card no-print">
+  <h2>Categories</h2>
+  <div id="category-chips" class="chips"></div>
+  <div class="people-add">
+    <input type="text" id="category-input" placeholder="Add a category…">
+    <button class="btn-secondary" id="category-add-btn">Add</button>
+  </div>
+</div>
+
+<!-- ── Tips & Fees ── -->
+<div class="card">
+  <h2>Tax, Tips &amp; Fees</h2>
+  <div class="tf-row">
+    <div class="tf-field">
+      <span>Default tax rate (%)</span>
+      <input type="text" inputmode="decimal" id="default-tax-input" value="7" placeholder="7">
+    </div>
+    <div class="tf-field">
+      <span>Tip ($)</span>
+      <input type="text" inputmode="decimal" id="tip-input" value="" placeholder="0.00">
+    </div>
+    <div class="tf-field">
+      <span>Fee ($)</span>
+      <input type="text" inputmode="decimal" id="fee-input" value="" placeholder="0.00">
+    </div>
+  </div>
+</div>
+
+<!-- ── Category pivot ── -->
+<div class="card">
+  <h2>By Category</h2>
+  <p class="empty-state" id="cat-empty">Add rows to see category breakdown.</p>
+  <div id="cat-content" style="display:none">
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="matrix">Matrix</button>
+      <button class="tab-btn" data-tab="grouped">Grouped</button>
+    </div>
+    <div id="cat-view-matrix">
+      <div class="overflow-x">
+        <table id="cat-matrix-table">
+          <thead id="cat-matrix-thead"></thead>
+          <tbody id="cat-matrix-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+    <div id="cat-view-grouped" style="display:none">
+      <div id="cat-grouped"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Per-assignee summary ── -->
+<div class="card">
+  <h2>Per-Assignee Summary</h2>
+  <div class="overflow-x">
+    <p class="empty-state" id="sum-empty">Add rows to see assignee summary.</p>
+    <table id="sum-table" style="display:none">
+      <thead>
+        <tr>
+          <th class="th-left">Assignee</th>
+          <th>Subtotal</th>
+          <th>Share %</th>
+          <th>Tip Share</th>
+          <th>Fee Share</th>
+          <th>Final Owed</th>
+        </tr>
+      </thead>
+      <tbody id="sum-tbody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Export ── -->
+<div class="card no-print">
+  <h2>Export</h2>
+  <div class="people-add" style="margin-bottom:12px">
+    <input type="email" id="email-to" placeholder="email address…" inputmode="email" autocapitalize="off" autocorrect="off">
+  </div>
+  <div class="btn-row" style="margin-top:0">
+    <button class="btn-primary" id="pdf-btn">Save as PDF</button>
+    <button class="btn-secondary" id="email-btn">Email summary</button>
+  </div>
+  <p class="empty-state" style="margin-top:8px">"Save as PDF" uses your browser's print dialog (choose "Save as PDF"). "Email summary" opens your mail app with the breakdown — attach the saved PDF yourself.</p>
+</div>
+
+<script>
+// Register the service worker so the app installs and works offline.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+<script>
+(function () {
+'use strict';
+
+/* ── Constants ─────────────────────────────────────────────────────── */
+
+const FRAC_OPTS = ['1', '1/2', '1/3', '2/3', '1/4', '3/4'];
+const FRAC_VAL  = { '1': 1, '1/2': 0.5, '1/3': 1/3, '2/3': 2/3, '1/4': 0.25, '3/4': 0.75 };
+const LS_KEY    = 'txn-splitter-v3';
+const DEFAULT_PEOPLE     = ['Adam', 'Dad', 'Mom', 'Doug', 'Ian', 'Ethan'];
+const DEFAULT_CATEGORIES = ['Food', 'Groceries', 'Kitchen', 'Bathroom', 'Personal', 'Laundry', 'Event'];
+
+/* ── State ─────────────────────────────────────────────────────────── */
+
+let rows = [];
+let people = [];       // configurable assignee roster
+let categories = [];   // configurable category roster
+
+/* ── Pure helpers ──────────────────────────────────────────────────── */
+
+function newRow() {
+  return { amount: '', taxed: false, rateOverride: '', assignee: 'Adam', category: '', fraction: '1' };
+}
+
+// Current global default tax rate (as a percentage number).
+function curDefaultRate() {
+  const v = parseFloat(document.getElementById('default-tax-input').value);
+  return isFinite(v) ? v : 0;
+}
+
+// ── Currency entry ──
+// Interpret typed digits as cents and format from the right: 5→0.05,
+// 1234→12.34. Empty / all-zero shows nothing (placeholder takes over).
+function formatCurrency(raw) {
+  const digits = String(raw).replace(/\D/g, '');
+  if (digits === '') return '';
+  const cents = parseInt(digits, 10);
+  if (!isFinite(cents) || cents === 0) return '';
+  return (cents / 100).toFixed(2);
+}
+
+// Display a stored money string as 2dp, leaving blank empty.
+function moneyDisplay(s) {
+  if (s == null || s === '') return '';
+  const n = parseFloat(s);
+  return isFinite(n) && n !== 0 ? n.toFixed(2) : '';
+}
+
+function setCaretEnd(el) {
+  try { const n = el.value.length; el.setSelectionRange(n, n); } catch (_) {}
+}
+
+// Live-format a money input in place (used by amount, tip, fee).
+function applyMoneyFormat(el) {
+  const f = formatCurrency(el.value);
+  if (f !== el.value) { el.value = f; setCaretEnd(el); }
+}
+
+// Build <option>s for an assignee <select>, keeping any value already in use
+// even if it has since been removed from the roster.
+function assigneeOptions(selected) {
+  return rosterOptions(people, selected, '(unassigned)');
+}
+
+function categoryOptions(selected) {
+  return rosterOptions(categories, selected, '(uncategorized)');
+}
+
+// Shared <option> builder. Keeps an in-use value present even if it has been
+// removed from the roster, so existing rows never lose their selection.
+function rosterOptions(roster, selected, blankLabel) {
+  const items = roster.slice();
+  if (selected && !items.includes(selected)) items.unshift(selected);
+  let opts = `<option value=""${!selected ? ' selected' : ''}>${blankLabel}</option>`;
+  items.forEach(n => {
+    opts += `<option value="${esc(n)}"${n === selected ? ' selected' : ''}>${esc(n)}</option>`;
+  });
+  return opts;
+}
+
+/* ── Penny reconciliation (seeded so it's stable across re-renders) ──── */
+
+function strSeed(s) {
+  let h = 1779033703 ^ s.length;
+  for (let i = 0; i < s.length; i++) {
+    h = Math.imul(h ^ s.charCodeAt(i), 3432918353);
+    h = (h << 13) | (h >>> 19);
+  }
+  return h >>> 0;
+}
+
+function mulberry32(a) {
+  return function () {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// Round values to integer cents so they sum exactly to round(exactTotal).
+// Any leftover ± pennies are handed to seeded-random eligible entries.
+function reconcileCents(values, exactTotal, seedStr) {
+  const cents = values.map(v => Math.round(v * 100));
+  const target = Math.round(exactTotal * 100);
+  let diff = target - cents.reduce((a, b) => a + b, 0);
+  const n = cents.length;
+  if (n > 0 && diff !== 0) {
+    const step = diff > 0 ? 1 : -1;
+    // Eligible: only entries that actually have money here (and stay >= 0).
+    let eligible = [];
+    for (let i = 0; i < n; i++) {
+      if (values[i] > 1e-9 && (step > 0 || cents[i] > 0)) eligible.push(i);
+    }
+    if (eligible.length === 0) eligible = [...Array(n).keys()];
+    const rng = mulberry32(strSeed(seedStr));
+    for (let i = eligible.length - 1; i > 0; i--) {
+      const j = Math.floor(rng() * (i + 1));
+      [eligible[i], eligible[j]] = [eligible[j], eligible[i]];
+    }
+    let count = Math.abs(diff), k = 0;
+    while (count-- > 0) { cents[eligible[k % eligible.length]] += step; k++; }
+  }
+  return cents;
+}
+
+function esc(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function fmt(v) {
+  const n = Number(v);
+  return isFinite(n) ? '$' + n.toFixed(2) : '$0.00';
+}
+
+// Normalise a label: trim whitespace, fall back to placeholder if blank.
+function norm(s, fallback) {
+  const str = s == null ? '' : String(s);
+  return str.trim() || fallback;
+}
+
+// Resolve a row's effective tax rate as a decimal multiplier. Rates are
+// entered/displayed as percentages in the UI (7 = 7%), so divide by 100.
+//  - not taxed            → 0
+//  - taxed, blank override → global default rate
+//  - taxed, override set    → that row's own rate
+function rowRate(r) {
+  if (!r.taxed) return 0;
+  const ov = parseFloat(r.rateOverride);
+  const pct = (r.rateOverride !== '' && r.rateOverride != null && isFinite(ov))
+    ? ov
+    : curDefaultRate();
+  return (isFinite(pct) ? pct : 0) / 100;
+}
+
+// Compute derived values for a single row.
+function computeRow(r) {
+  const frac   = FRAC_VAL[r.fraction] ?? 1;
+  const amount = parseFloat(r.amount) || 0;
+  const eff    = amount * frac;             // Amount × Fraction
+  const tax    = rowRate(r) * eff;          // Rate × Amount × Fraction
+  const total  = eff + tax;
+  return { eff, tax, total };
+}
+
+/* ── Full rebuild ──────────────────────────────────────────────────── */
+// Called after row add / remove / clear / load.
+
+function fullRender() {
+  buildMainTable();
+  buildCategoryTable();
+  buildSummaryTable();
+  persist();
+}
+
+/* ── Partial update ────────────────────────────────────────────────── */
+// Called after editing a cell — preserves input focus by only touching
+// computed cells and the secondary tables.
+
+function partialUpdate() {
+  refreshMainComputeds();
+  buildCategoryTable();
+  buildSummaryTable();
+  persist();
+}
+
+/* ── Main table ────────────────────────────────────────────────────── */
+
+function buildMainTable() {
+  const tbody = document.getElementById('main-tbody');
+  const comp  = rows.map(computeRow);
+
+  let sumAmt = 0, sumEff = 0, sumTax = 0, sumTot = 0;
+  rows.forEach((r, i) => {
+    sumAmt += parseFloat(r.amount) || 0;
+    sumEff += comp[i].eff;
+    sumTax += comp[i].tax;
+    sumTot += comp[i].total;
+  });
+
+  const rowsHtml = rows.map((r, i) => {
+    const c = comp[i];
+    const fracOpts = FRAC_OPTS.map(f =>
+      `<option value="${f}"${r.fraction === f ? ' selected' : ''}>${f}</option>`
+    ).join('');
+    return `<tr>
+      <td><input type="text" inputmode="decimal" class="num-input"
+            value="${esc(moneyDisplay(r.amount))}" placeholder="0.00"
+            data-row="${i}" data-col="amount"></td>
+      <td class="td-center"><input type="checkbox" class="tax-check"
+            data-row="${i}" data-col="taxed"${r.taxed ? ' checked' : ''}></td>
+      <td><input type="text" inputmode="decimal" class="num-input rate-input"
+            value="${esc(r.rateOverride)}" data-row="${i}" data-col="rateOverride"
+            placeholder="${curDefaultRate()}"${r.taxed ? '' : ' disabled'}></td>
+      <td class="td-left">
+        <select class="asgn-sel" data-row="${i}" data-col="assignee">${assigneeOptions(r.assignee)}</select></td>
+      <td class="td-left">
+        <select class="cat-sel" data-row="${i}" data-col="category">${categoryOptions(r.category)}</select></td>
+      <td class="td-center">
+        <select class="frac-sel" data-row="${i}" data-col="fraction">${fracOpts}</select></td>
+      <td class="computed" data-cr="${i}" data-cc="eff">${fmt(c.eff)}</td>
+      <td class="computed" data-cr="${i}" data-cc="tax">${fmt(c.tax)}</td>
+      <td class="computed" data-cr="${i}" data-cc="tot">${fmt(c.total)}</td>
+      <td class="td-center">
+        <button class="remove-btn" data-remove="${i}" title="Remove row">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  const totRow = `<tr class="totals-row">
+    <td id="tot-amt">${fmt(sumAmt)}</td>
+    <td></td><td></td><td></td><td></td><td></td>
+    <td class="computed" id="tot-eff">${fmt(sumEff)}</td>
+    <td class="computed" id="tot-tax">${fmt(sumTax)}</td>
+    <td class="computed" id="tot-tot">${fmt(sumTot)}</td>
+    <td></td>
+  </tr>`;
+
+  tbody.innerHTML = rowsHtml + totRow;
+}
+
+function refreshMainComputeds() {
+  const comp = rows.map(computeRow);
+  let sumAmt = 0, sumEff = 0, sumTax = 0, sumTot = 0;
+
+  rows.forEach((r, i) => {
+    sumAmt += parseFloat(r.amount) || 0;
+    sumEff += comp[i].eff;
+    sumTax += comp[i].tax;
+    sumTot += comp[i].total;
+
+    const q = cc => document.querySelector(`[data-cr="${i}"][data-cc="${cc}"]`);
+    const ce = q('eff'); if (ce) ce.textContent = fmt(comp[i].eff);
+    const ct = q('tax'); if (ct) ct.textContent = fmt(comp[i].tax);
+    const cr = q('tot'); if (cr) cr.textContent = fmt(comp[i].total);
+  });
+
+  const s = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = fmt(v); };
+  s('tot-amt', sumAmt);
+  s('tot-eff', sumEff);
+  s('tot-tax', sumTax);
+  s('tot-tot', sumTot);
+}
+
+/* ── Category pivot table ──────────────────────────────────────────── */
+
+function buildCategoryTable() {
+  const emptyEl   = document.getElementById('cat-empty');
+  const contentEl = document.getElementById('cat-content');
+
+  if (rows.length === 0) {
+    emptyEl.style.display = '';
+    contentEl.style.display = 'none';
+    return;
+  }
+
+  const comp = rows.map(computeRow);
+  const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
+  const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
+
+  // Collect ordered unique categories and assignees, plus per-category
+  // effective / tax sums.
+  const catOrder  = [], catSet  = new Set();
+  const asgnOrder = [], asgnSet = new Set();
+  const effByCat = {}, taxByCat = {};
+  rows.forEach(r => {
+    const cat  = norm(r.category, '(uncategorized)');
+    const asgn = norm(r.assignee, '(unassigned)');
+    if (!catSet.has(cat))   { catSet.add(cat);   catOrder.push(cat); effByCat[cat] = 0; taxByCat[cat] = 0; }
+    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); }
+  });
+
+  // M[assignee][category] = combined amount (effective + tax).
+  const M = {};
+  asgnOrder.forEach(a => { M[a] = {}; catOrder.forEach(c => { M[a][c] = 0; }); });
+  rows.forEach((r, i) => {
+    const cat  = norm(r.category, '(uncategorized)');
+    const asgn = norm(r.assignee, '(unassigned)');
+    M[asgn][cat]  += comp[i].eff + comp[i].tax;
+    effByCat[cat] += comp[i].eff;
+    taxByCat[cat] += comp[i].tax;
+  });
+
+  // Only show categories that carry a non-zero total.
+  const cats = catOrder.filter(c => (effByCat[c] + taxByCat[c]) > 1e-9);
+
+  if (cats.length === 0) {
+    emptyEl.style.display = '';
+    contentEl.style.display = 'none';
+    return;
+  }
+
+  const fmtC = cents => '$' + (cents / 100).toFixed(2);
+
+  // Reconcile each category column to integer cents so the per-assignee
+  // amounts sum exactly to the category total; the stray ±penny is handed to
+  // a seeded-random assignee. R[a][c] is in cents.
+  const R = {}; asgnOrder.forEach(a => { R[a] = {}; });
+  cats.forEach(c => {
+    const vals = asgnOrder.map(a => M[a][c]);
+    const exactTot = vals.reduce((s, v) => s + v, 0);
+    const cents = reconcileCents(vals, exactTot, 'cat:' + c);
+    asgnOrder.forEach((a, i) => { R[a][c] = cents[i]; });
+  });
+
+  // Per-category money breakdown. Global Tip and Fee are split across
+  // categories by each category's share of the grand total; each column is
+  // reconciled to the cent. Indexed by position in `cats`.
+  const grandTot = cats.reduce((s, c) => s + effByCat[c] + taxByCat[c], 0);
+  const effCents = reconcileCents(cats.map(c => effByCat[c]), cats.reduce((s, c) => s + effByCat[c], 0), 'eff');
+  const taxCents = reconcileCents(cats.map(c => taxByCat[c]), cats.reduce((s, c) => s + taxByCat[c], 0), 'tax');
+  const tipExact = cats.map(c => grandTot > 1e-9 ? (effByCat[c] + taxByCat[c]) / grandTot * tipVal : 0);
+  const feeExact = cats.map(c => grandTot > 1e-9 ? (effByCat[c] + taxByCat[c]) / grandTot * feeVal : 0);
+  const tipCents = reconcileCents(tipExact, grandTot > 1e-9 ? tipVal : 0, 'tip');
+  const feeCents = reconcileCents(feeExact, grandTot > 1e-9 ? feeVal : 0, 'fee');
+  const idxOf = {}; cats.forEach((c, i) => { idxOf[c] = i; });
+
+  /* ── Matrix view: assignees as rows, categories as columns ── */
+  let hdr = '<tr><th class="th-left">Assignee</th>';
+  cats.forEach(c => { hdr += `<th>${esc(c)}</th>`; });
+  hdr += '<th>Total</th></tr>';
+  document.getElementById('cat-matrix-thead').innerHTML = hdr;
+
+  const catTotC = {}; cats.forEach(c => { catTotC[c] = 0; });
+  let grandC = 0, body = '';
+  asgnOrder.forEach(a => {
+    let rowC = 0;
+    body += `<tr><td class="td-left">${esc(a)}</td>`;
+    cats.forEach(c => {
+      const cents = R[a][c];
+      rowC += cents; catTotC[c] += cents;
+      body += `<td class="computed">${cents !== 0 ? fmtC(cents) : '<span class="muted">—</span>'}</td>`;
+    });
+    grandC += rowC;
+    body += `<td class="computed strong">${fmtC(rowC)}</td></tr>`;
+  });
+
+  // Helper to render a labelled summary row across the category columns.
+  const sumRow = (label, perCat, total, cls) => {
+    let r = `<tr class="${cls}"><td class="td-left">${label}</td>`;
+    cats.forEach(c => { r += `<td class="computed">${fmtC(perCat(c))}</td>`; });
+    r += `<td class="computed">${fmtC(total)}</td></tr>`;
+    return r;
+  };
+  const totTipC = tipCents.reduce((a, b) => a + b, 0);
+  const totFeeC = feeCents.reduce((a, b) => a + b, 0);
+  body += sumRow('Items',  c => catTotC[c], grandC, 'totals-row');
+  body += sumRow('Tip',    c => tipCents[idxOf[c]], totTipC, '');
+  body += sumRow('Fee',    c => feeCents[idxOf[c]], totFeeC, '');
+  body += sumRow('Final',  c => catTotC[c] + tipCents[idxOf[c]] + feeCents[idxOf[c]], grandC + totTipC + totFeeC, 'totals-row');
+  document.getElementById('cat-matrix-tbody').innerHTML = body;
+
+  /* ── Grouped view: a card per category, with the money breakdown. ── */
+  const line = (label, cents) => `<div class="grp-line"><span>${label}</span><span>${fmtC(cents)}</span></div>`;
+  let g = '';
+  cats.forEach((c, i) => {
+    const subC   = effCents[i];
+    const txC    = taxCents[i];
+    const totC   = subC + txC;
+    const tpC    = tipCents[i];
+    const feC    = feeCents[i];
+    const finalC = totC + tpC + feC;
+    g += `<div class="grp">
+      <div class="grp-head"><span>${esc(c)}</span><span>${fmtC(finalC)}</span></div>
+      ${line('Subtotal', subC)}
+      ${line('Tax', txC)}
+      ${line('Total', totC)}
+      ${line('Tip', tpC)}
+      ${line('Fee', feC)}
+    </div>`;
+  });
+  document.getElementById('cat-grouped').innerHTML = g;
+
+  emptyEl.style.display = 'none';
+  contentEl.style.display = '';
+}
+
+/* ── Per-assignee summary ───────────────────────────────────────────── */
+
+function buildSummaryTable() {
+  const emptyEl = document.getElementById('sum-empty');
+  const tableEl = document.getElementById('sum-table');
+
+  if (rows.length === 0) {
+    emptyEl.style.display = '';
+    tableEl.style.display = 'none';
+    return;
+  }
+
+  const comp   = rows.map(computeRow);
+  const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
+  const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
+
+  // Accumulate Row Total subtotals per assignee.
+  const asgnOrder = [], asgnSet = new Set(), asgnSub = {};
+  rows.forEach((r, i) => {
+    const asgn = norm(r.assignee, '(unassigned)');
+    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); asgnSub[asgn] = 0; }
+    asgnSub[asgn] += comp[i].total;
+  });
+
+  const grandTotal = asgnOrder.reduce((s, a) => s + asgnSub[a], 0);
+
+  let html = '';
+  let sumSub = 0, sumTip = 0, sumFee = 0, sumFinal = 0;
+
+  asgnOrder.forEach(asgn => {
+    const sub   = asgnSub[asgn];
+    // Share = 0 when grand total is zero (avoid divide-by-zero).
+    const share = grandTotal > 1e-9 ? sub / grandTotal : 0;
+    const tip   = share * tipVal;
+    const fee   = share * feeVal;
+    const final = sub + tip + fee;
+    sumSub   += sub;
+    sumTip   += tip;
+    sumFee   += fee;
+    sumFinal += final;
+    html += `<tr>
+      <td class="td-left">${esc(asgn)}</td>
+      <td class="computed">${fmt(sub)}</td>
+      <td class="computed">${(share * 100).toFixed(2)}%</td>
+      <td class="computed">${fmt(tip)}</td>
+      <td class="computed">${fmt(fee)}</td>
+      <td class="computed">${fmt(final)}</td>
+    </tr>`;
+  });
+
+  const shareTotPct = grandTotal > 1e-9 ? '100.00%' : '0.00%';
+  html += `<tr class="totals-row">
+    <td class="td-left">TOTAL</td>
+    <td class="computed">${fmt(sumSub)}</td>
+    <td class="computed">${shareTotPct}</td>
+    <td class="computed">${fmt(sumTip)}</td>
+    <td class="computed">${fmt(sumFee)}</td>
+    <td class="computed">${fmt(sumFinal)}</td>
+  </tr>`;
+
+  document.getElementById('sum-tbody').innerHTML = html;
+  emptyEl.style.display = 'none';
+  tableEl.style.display = '';
+}
+
+/* ── Persistence ────────────────────────────────────────────────────── */
+
+function persist() {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify({
+      rows,
+      people,
+      categories,
+      defaultTaxRate: document.getElementById('default-tax-input').value,
+      tip: document.getElementById('tip-input').value,
+      fee: document.getElementById('fee-input').value,
+      emailTo: document.getElementById('email-to').value
+    }));
+  } catch (_) { /* storage quota */ }
+}
+
+function restore() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return false;
+    const state = JSON.parse(raw);
+    if (!Array.isArray(state.rows)) return false;
+    // Mutate rosters in place (don't reassign) so the wired add/remove
+    // handlers keep pointing at the live arrays.
+    setRoster(people, Array.isArray(state.people) ? state.people : DEFAULT_PEOPLE);
+    // Fall back to defaults when the saved category list is missing or empty
+    // (older saves predate the seeded defaults).
+    const savedCats = Array.isArray(state.categories) ? state.categories : [];
+    setRoster(categories, savedCats.length ? savedCats : DEFAULT_CATEGORIES);
+    rows = state.rows.map(r => {
+      // Migrate legacy rows (old per-row decimal `taxRate`) to the new model:
+      // a non-zero old rate becomes a per-row override (as a %), preserving totals.
+      let taxed, rateOverride;
+      if (('taxed' in r) || ('rateOverride' in r)) {
+        taxed = !!r.taxed;
+        rateOverride = r.rateOverride != null ? String(r.rateOverride) : '';
+      } else {
+        const tr = parseFloat(r.taxRate);   // legacy decimal multiplier → percent
+        if (isFinite(tr) && tr > 0) { taxed = true;  rateOverride = String(+(tr * 100).toFixed(4)); }
+        else                        { taxed = false; rateOverride = ''; }
+      }
+      return {
+        amount:   String(r.amount ?? ''),
+        taxed,
+        rateOverride,
+        assignee: String(r.assignee ?? ''),
+        category: String(r.category ?? ''),
+        fraction: FRAC_OPTS.includes(r.fraction) ? r.fraction : '1'
+      };
+    });
+    const dr = parseFloat(state.defaultTaxRate);
+    document.getElementById('default-tax-input').value = isFinite(dr) ? String(dr) : '7';
+    document.getElementById('tip-input').value = moneyDisplay(state.tip);
+    document.getElementById('fee-input').value = moneyDisplay(state.fee);
+    document.getElementById('email-to').value = state.emailTo || '';
+    return true;
+  } catch (_) { return false; }
+}
+
+/* ── Event wiring ───────────────────────────────────────────────────── */
+
+const mainTbody = document.getElementById('main-tbody');
+
+// Write an edited cell back into row state. Returns true if it matched a column.
+function applyCell(el) {
+  const idx = parseInt(el.dataset.row, 10);
+  const col = el.dataset.col;
+  if (isNaN(idx) || !col || !rows[idx]) return false;
+  const r = rows[idx];
+  switch (col) {
+    case 'amount':       r.amount       = el.value;   break;
+    case 'rateOverride': r.rateOverride = el.value;   break;
+    case 'assignee':     r.assignee     = el.value;   break;
+    case 'category':     r.category     = el.value;   break;
+    case 'fraction':     r.fraction     = el.value;   break;
+    case 'taxed':        r.taxed        = el.checked; break;
+    default: return false;
+  }
+  return true;
+}
+
+// Text fields fire 'input' (live, focus-preserving partial update).
+mainTbody.addEventListener('input', e => {
+  const el  = e.target;
+  const col = el.dataset.col;
+  if (col === 'amount') applyMoneyFormat(el);   // auto-decimal currency entry
+  if (col === 'amount' || col === 'rateOverride') {
+    if (applyCell(el)) partialUpdate();
+  }
+});
+
+// Checkbox + selects fire 'change' (Taxed, Assignee, Category, Fraction).
+// Toggling "Taxed" enables/disables that row's rate-override field in place.
+mainTbody.addEventListener('change', e => {
+  const el  = e.target;
+  const col = el.dataset.col;
+  if (col !== 'taxed' && col !== 'fraction' && col !== 'assignee' && col !== 'category') return;
+  if (!applyCell(el)) return;
+  if (col === 'taxed') {
+    const ov = mainTbody.querySelector(`[data-row="${el.dataset.row}"][data-col="rateOverride"]`);
+    if (ov) ov.disabled = !el.checked;
+  }
+  partialUpdate();
+});
+
+// Remove-row button.
+document.getElementById('main-tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-remove]');
+  if (!btn) return;
+  const idx = parseInt(btn.dataset.remove, 10);
+  if (isNaN(idx)) return;
+  rows.splice(idx, 1);
+  fullRender();
+});
+
+// Add row.
+document.getElementById('add-row-btn').addEventListener('click', () => {
+  rows.push(newRow());
+  fullRender();
+  const newIdx = rows.length - 1;
+  const el = document.querySelector(`[data-row="${newIdx}"][data-col="amount"]`);
+  if (el) { el.focus(); el.select(); }
+});
+
+// Clear all — inline two-tap confirm (native confirm() is a no-op in some
+// embedded webviews, so we don't rely on it).
+const clearBtn = document.getElementById('clear-btn');
+let clearArmed = false, clearTimer = null;
+
+function resetClearBtn() {
+  clearArmed = false;
+  clearBtn.textContent = 'Clear All';
+  clearBtn.classList.remove('btn-danger');
+  if (clearTimer) { clearTimeout(clearTimer); clearTimer = null; }
+}
+
+clearBtn.addEventListener('click', () => {
+  if (!clearArmed) {
+    clearArmed = true;
+    clearBtn.textContent = 'Tap again to clear';
+    clearBtn.classList.add('btn-danger');
+    clearTimer = setTimeout(resetClearBtn, 3000);
+    return;
+  }
+  resetClearBtn();
+  rows = [newRow()];
+  setRoster(people, DEFAULT_PEOPLE);
+  setRoster(categories, DEFAULT_CATEGORIES);
+  document.getElementById('default-tax-input').value = '7';
+  document.getElementById('tip-input').value = '';
+  document.getElementById('fee-input').value = '';
+  try { localStorage.removeItem(LS_KEY); } catch (_) {}
+  renderPeople();
+  renderCategories();
+  fullRender();
+});
+
+// Default tax rate — affects every row that inherits it, so recompute fully.
+document.getElementById('default-tax-input').addEventListener('input', () => { partialUpdate(); });
+
+// Tip / Fee — currency-formatted. Both the category breakdown and the
+// per-assignee summary allocate these, so rebuild both.
+function onTipFee(e) { applyMoneyFormat(e.target); buildCategoryTable(); buildSummaryTable(); persist(); }
+document.getElementById('tip-input').addEventListener('input', onTipFee);
+document.getElementById('fee-input').addEventListener('input', onTipFee);
+
+/* ── Export: Save as PDF (print) + Email summary (mailto) ── */
+document.getElementById('email-to').addEventListener('input', persist);
+document.getElementById('pdf-btn').addEventListener('click', () => { window.print(); });
+
+// Plain-text per-assignee summary for the email body.
+function emailSummaryText() {
+  const comp = rows.map(computeRow);
+  const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
+  const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
+  const order = [], sub = {};
+  rows.forEach((r, i) => {
+    const a = norm(r.assignee, '(unassigned)');
+    if (!(a in sub)) { sub[a] = 0; order.push(a); }
+    sub[a] += comp[i].total;
+  });
+  const grand = order.reduce((s, a) => s + sub[a], 0);
+  const lines = ['Transaction Splitter — amount owed', ''];
+  let totFinal = 0;
+  order.forEach(a => {
+    const share = grand > 1e-9 ? sub[a] / grand : 0;
+    const fin = sub[a] + share * tipVal + share * feeVal;
+    totFinal += fin;
+    lines.push(`${a}: ${fmt(fin)}  (items ${fmt(sub[a])})`);
+  });
+  lines.push('', `Total: ${fmt(totFinal)}  —  items ${fmt(grand)}, tip ${fmt(tipVal)}, fee ${fmt(feeVal)}`);
+  return lines.join('\n');
+}
+
+document.getElementById('email-btn').addEventListener('click', () => {
+  const to = document.getElementById('email-to').value.trim();
+  const subject = 'Transaction Splitter summary';
+  const body = emailSummaryText() + '\n\n(Attach the saved PDF for the full breakdown.)';
+  window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+});
+
+/* ── Roster management (People + Categories, same mechanics) ── */
+
+// Replace a roster's contents in place (preserves the array reference that
+// the add/remove handlers closed over).
+function setRoster(target, src) {
+  target.length = 0;
+  src.forEach(n => target.push(String(n)));
+}
+
+function renderRoster(roster, chipsId, emptyMsg) {
+  const box = document.getElementById(chipsId);
+  box.innerHTML = roster.length
+    ? roster.map((n, i) => `<span class="chip">${esc(n)}<button class="chip-x" data-idx="${i}" title="Remove">✕</button></span>`).join('')
+    : `<span class="muted">${emptyMsg}</span>`;
+}
+function renderPeople()     { renderRoster(people, 'people-chips', 'No names yet — add one below.'); }
+function renderCategories() { renderRoster(categories, 'category-chips', 'No categories yet — add one below.'); }
+
+// Wire a roster card: add (button + Enter) and remove (chip ✕). After any
+// change, refresh the row dropdowns and persist. Existing rows keep a value
+// even after its name is removed from the roster.
+function wireRoster(roster, inputId, addBtnId, chipsId, rerender) {
+  const inp = document.getElementById(inputId);
+  function add() {
+    const name = inp.value.trim();
+    if (name && !roster.includes(name)) roster.push(name);
+    inp.value = '';
+    rerender();
+    buildMainTable();
+    persist();
+  }
+  document.getElementById(addBtnId).addEventListener('click', add);
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); add(); } });
+  document.getElementById(chipsId).addEventListener('click', e => {
+    const b = e.target.closest('[data-idx]');
+    if (!b) return;
+    const i = parseInt(b.dataset.idx, 10);
+    if (isNaN(i)) return;
+    roster.splice(i, 1);
+    rerender();
+    buildMainTable();
+    persist();
+  });
+}
+
+wireRoster(people, 'people-input', 'people-add-btn', 'people-chips', renderPeople);
+wireRoster(categories, 'category-input', 'category-add-btn', 'category-chips', renderCategories);
+
+// Category view tabs (Matrix / Grouped).
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.getElementById('cat-view-matrix').style.display  = tab === 'matrix'  ? '' : 'none';
+    document.getElementById('cat-view-grouped').style.display = tab === 'grouped' ? '' : 'none';
+  });
+});
+
+/* ── Bootstrap ──────────────────────────────────────────────────────── */
+
+const restored = restore();
+if (!restored) {
+  setRoster(people, DEFAULT_PEOPLE);
+  setRoster(categories, DEFAULT_CATEGORIES);
+}
+if (!restored || rows.length === 0) rows = [newRow()];
+renderPeople();
+renderCategories();
+fullRender();
+
+})();
+</script>
+</body>
+</html>
