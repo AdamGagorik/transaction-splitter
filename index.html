@@ -306,22 +306,35 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
 select.asgn-sel, select.cat-sel { width: 132px; }
 
 @media print {
+  /* Landscape + small margins gives wide tables room. */
+  @page { size: landscape; margin: 10mm; }
   body { background: #fff; padding: 0; }
-  .card { box-shadow: none; border: 1px solid #e2e8f0; break-inside: avoid; }
+  .card { box-shadow: none; border: 1px solid #e2e8f0; }
   .no-print, .btn-row, .tabs, .remove-btn { display: none !important; }
   /* Show both category views when printing. */
   #cat-view-grouped, #cat-view-matrix { display: block !important; }
+  /* Unclip horizontally-scrolling tables and make them fit the page so
+     nothing is cut off. */
+  .overflow-x { overflow: visible !important; }
+  table { font-size: 9px !important; width: 100% !important; table-layout: fixed; }
+  thead th, tbody td {
+    padding: 3px 4px !important;
+    white-space: normal !important;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
   /* Flatten inputs/selects to plain text so they read like a report. */
   input, select {
     border: none !important; box-shadow: none !important; padding: 0 !important;
     -webkit-appearance: none; appearance: none; background: transparent !important;
+    width: auto !important; max-width: 100%; font-size: 9px !important;
   }
 }
 </style>
 </head>
 <body>
 
-<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-18e</span></h1>
+<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-18f</span></h1>
 
 <!-- ── Main transactions ── -->
 <div class="card">
@@ -1091,29 +1104,49 @@ function emailSummaryText() {
   const comp = rows.map(computeRow);
   const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
   const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
-  const order = [], sub = {};
+
+  // Per-assignee subtotals; per-category effective/tax.
+  const aOrder = [], aSub = {};
+  const cOrder = [], cEff = {}, cTax = {};
   rows.forEach((r, i) => {
     const a = norm(r.assignee, '(unassigned)');
-    if (!(a in sub)) { sub[a] = 0; order.push(a); }
-    sub[a] += comp[i].total;
+    if (!(a in aSub)) { aSub[a] = 0; aOrder.push(a); }
+    aSub[a] += comp[i].total;
+    const c = norm(r.category, '(uncategorized)');
+    if (!(c in cEff)) { cEff[c] = 0; cTax[c] = 0; cOrder.push(c); }
+    cEff[c] += comp[i].eff; cTax[c] += comp[i].tax;
   });
-  const grand = order.reduce((s, a) => s + sub[a], 0);
-  const lines = ['Transaction Splitter — amount owed', ''];
-  let totFinal = 0;
-  order.forEach(a => {
-    const share = grand > 1e-9 ? sub[a] / grand : 0;
-    const fin = sub[a] + share * tipVal + share * feeVal;
-    totFinal += fin;
-    lines.push(`${a}: ${fmt(fin)}  (items ${fmt(sub[a])})`);
+  const grand = aOrder.reduce((s, a) => s + aSub[a], 0);
+  const share = v => grand > 1e-9 ? v / grand : 0;
+
+  const lines = [];
+  lines.push('TRANSACTION SPLITTER');
+  lines.push(`Items ${fmt(grand)}  +  Tip ${fmt(tipVal)}  +  Fee ${fmt(feeVal)}  =  ${fmt(grand + tipVal + feeVal)}`);
+
+  lines.push('', 'BY PERSON');
+  aOrder.forEach(a => {
+    const tip = share(aSub[a]) * tipVal, fee = share(aSub[a]) * feeVal;
+    lines.push(`  ${a}: ${fmt(aSub[a] + tip + fee)}`);
+    lines.push(`      items ${fmt(aSub[a])} · tip ${fmt(tip)} · fee ${fmt(fee)}`);
   });
-  lines.push('', `Total: ${fmt(totFinal)}  —  items ${fmt(grand)}, tip ${fmt(tipVal)}, fee ${fmt(feeVal)}`);
+
+  const cats = cOrder.filter(c => (cEff[c] + cTax[c]) > 1e-9);
+  if (cats.length) {
+    lines.push('', 'BY CATEGORY');
+    cats.forEach(c => {
+      const tot = cEff[c] + cTax[c];
+      const tip = share(tot) * tipVal, fee = share(tot) * feeVal;
+      lines.push(`  ${c}: ${fmt(tot + tip + fee)}`);
+      lines.push(`      subtotal ${fmt(cEff[c])} · tax ${fmt(cTax[c])} · total ${fmt(tot)} · tip ${fmt(tip)} · fee ${fmt(fee)}`);
+    });
+  }
   return lines.join('\n');
 }
 
 document.getElementById('email-btn').addEventListener('click', () => {
   const to = document.getElementById('email-to').value.trim();
   const subject = 'Transaction Splitter summary';
-  const body = emailSummaryText() + '\n\n(Attach the saved PDF for the full breakdown.)';
+  const body = emailSummaryText() + '\n\n(Attach the saved PDF for the itemized table.)';
   window.location.href = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 });
 
