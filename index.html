@@ -466,7 +466,7 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 </head>
 <body>
 
-<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-19e</span></h1>
+<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-19f</span></h1>
 
 <div class="main-tabs no-print">
   <button class="main-tab-btn active" data-main-tab="split">Split</button>
@@ -694,7 +694,7 @@ let payees     = [];
 /* ── Pure helpers ──────────────────────────────────────────────────── */
 
 function newRow() {
-  return { amount: '', taxed: false, rateOverride: '', payee: 'Costco', assignee: 'Adam', category: 'Food', fraction: '1' };
+  return { amount: '', taxed: false, rateOverride: '', payee: DEFAULT_PAYEES[0] || '', assignee: DEFAULT_PEOPLE[0] || '', category: DEFAULT_CATEGORIES[0] || '', fraction: '1' };
 }
 
 function curDefaultRate() {
@@ -1137,7 +1137,7 @@ function restore() {
         amount:   String(r.amount ?? ''),
         taxed,
         rateOverride,
-        payee:    String(r.payee ?? 'Costco'),
+        payee:    String(r.payee ?? DEFAULT_PAYEES[0] ?? ''),
         assignee: String(r.assignee ?? ''),
         category: String(r.category ?? ''),
         fraction: FRAC_OPTS.includes(r.fraction) ? r.fraction : '1'
