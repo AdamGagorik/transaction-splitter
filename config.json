@@ -1,0 +1,5 @@
+{
+  "defaultPeople":     ["Adam", "Dad", "Mom", "Doug", "Ian", "Ethan"],
+  "defaultCategories": ["Food : Groceries", "Food : Lunch", "Food : Dinner", "Items : Kitchen", "Items : Bathroom", "Items : Personal", "Items : Laundry", "Entertainment : Events"],
+  "defaultPayees":     ["Costco", "Giant Eagle", "Target", "Walmart", "Trader Joe's", "Whole Foods", "Sam's Club"]
+}
