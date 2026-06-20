@@ -1722,8 +1722,9 @@ function buildMainYnabTransaction() {
     if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(-d.eff), payee_name: d.payee, category_name: cat, memo: cat });
     if (d.tax > 1e-9) subtransactions.push({ amount: toMilliunits(-d.tax), payee_name: 'Sales Tax', category_name: cat, memo: cat + ' (tax)' });
   });
-  if (tipVal > 1e-9) subtransactions.push({ amount: toMilliunits(-tipVal), payee_name: 'Tip', memo: 'Tip' });
-  if (feeVal > 1e-9) subtransactions.push({ amount: toMilliunits(-feeVal), payee_name: 'Fee', memo: 'Fee' });
+  const primaryCat = catOrder[0] || undefined;
+  if (tipVal > 1e-9) subtransactions.push({ amount: toMilliunits(-tipVal), payee_name: 'Tip', category_name: primaryCat, memo: 'Tip' });
+  if (feeVal > 1e-9) subtransactions.push({ amount: toMilliunits(-feeVal), payee_name: 'Fee', category_name: primaryCat, memo: 'Fee' });
 
   return {
     type: 'main',
@@ -1791,8 +1792,9 @@ function buildPersonYnabTransactions() {
       if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.eff), payee_name: d.payee, category_name: cat, memo: cat });
       if (d.tax > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.tax), payee_name: 'Sales Tax', category_name: cat, memo: cat + ' (tax)' });
     });
-    if (personTip > 1e-9) subtransactions.push({ amount: toMilliunits(sign * personTip), payee_name: 'Tip', memo: 'Tip' });
-    if (personFee > 1e-9) subtransactions.push({ amount: toMilliunits(sign * personFee), payee_name: 'Fee', memo: 'Fee' });
+    const primaryCat = cats[0] || undefined;
+    if (personTip > 1e-9) subtransactions.push({ amount: toMilliunits(sign * personTip), payee_name: 'Tip', category_name: primaryCat, memo: 'Tip' });
+    if (personFee > 1e-9) subtransactions.push({ amount: toMilliunits(sign * personFee), payee_name: 'Fee', category_name: primaryCat, memo: 'Fee' });
 
     results.push({
       type:      'person',
