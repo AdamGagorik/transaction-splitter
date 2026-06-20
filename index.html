@@ -1188,6 +1188,30 @@ function restore() {
   } catch (_) { return false; }
 }
 
+/* ── Two-click confirm helper ───────────────────────────────────────── */
+
+function wireTwoClickBtn(btnId, defaultLabel, armedLabel, action) {
+  const btn = document.getElementById(btnId);
+  let armed = false, timer = null;
+  function reset() {
+    armed = false;
+    btn.textContent = defaultLabel;
+    btn.classList.remove('btn-danger');
+    if (timer) { clearTimeout(timer); timer = null; }
+  }
+  btn.addEventListener('click', () => {
+    if (!armed) {
+      armed = true;
+      btn.textContent = armedLabel;
+      btn.classList.add('btn-danger');
+      timer = setTimeout(reset, 3000);
+      return;
+    }
+    reset();
+    action();
+  });
+}
+
 /* ── Event wiring ───────────────────────────────────────────────────── */
 
 const mainTbody = document.getElementById('main-tbody');
@@ -1232,7 +1256,7 @@ mainTbody.addEventListener('change', e => {
 });
 
 
-document.getElementById('main-tbody').addEventListener('click', e => {
+mainTbody.addEventListener('click', e => {
   const btn = e.target.closest('[data-remove]');
   if (!btn) return;
   const idx = parseInt(btn.dataset.remove, 10);
@@ -1253,29 +1277,11 @@ document.getElementById('add-row-btn').addEventListener('click', () => {
   if (el) { el.focus(); el.select(); }
 });
 
-const clearBtn = document.getElementById('clear-btn');
-let clearArmed = false, clearTimer = null;
-
-function resetClearBtn() {
-  clearArmed = false;
-  clearBtn.textContent = 'Clear All';
-  clearBtn.classList.remove('btn-danger');
-  if (clearTimer) { clearTimeout(clearTimer); clearTimer = null; }
-}
-
-clearBtn.addEventListener('click', () => {
-  if (!clearArmed) {
-    clearArmed = true;
-    clearBtn.textContent = 'Tap again to clear';
-    clearBtn.classList.add('btn-danger');
-    clearTimer = setTimeout(resetClearBtn, 3000);
-    return;
-  }
-  resetClearBtn();
+wireTwoClickBtn('clear-btn', 'Clear All', 'Tap again to clear', () => {
   rows = [newRow()];
-  setRoster(people, DEFAULT_PEOPLE);
+  setRoster(people,     DEFAULT_PEOPLE);
   setRoster(categories, DEFAULT_CATEGORIES);
-  setRoster(payees, DEFAULT_PAYEES);
+  setRoster(payees,     DEFAULT_PAYEES);
   document.getElementById('default-tax-input').value = '7';
   document.getElementById('tip-input').value = '';
   document.getElementById('fee-input').value = '';
@@ -1498,63 +1504,14 @@ wireRoster(people,     'people-input',   'people-add-btn',   'people-chips',   r
 wireRoster(categories, 'category-input', 'category-add-btn', 'category-chips', renderCategories);
 wireRoster(payees,     'payee-input',    'payee-add-btn',    'payee-chips',    renderPayees);
 
-/* ── Roster "Load Defaults" buttons (two-click confirm) ── */
-function wireDefaultsBtn(btnId, getDefaults, roster, rerender) {
-  const btn = document.getElementById(btnId);
-  let armed = false, timer = null;
-  function reset() {
-    armed = false;
-    btn.textContent = 'Load Defaults';
-    btn.classList.remove('btn-danger');
-    if (timer) { clearTimeout(timer); timer = null; }
-  }
-  btn.addEventListener('click', () => {
-    if (!armed) {
-      armed = true;
-      btn.textContent = 'Click again to confirm';
-      btn.classList.add('btn-danger');
-      timer = setTimeout(reset, 3000);
-      return;
-    }
-    reset();
-    setRoster(roster, getDefaults());
-    rerender();
-    buildMainTable();
-    persist();
-  });
-}
-wireDefaultsBtn('people-defaults-btn',   () => DEFAULT_PEOPLE,     people,     renderPeople);
-wireDefaultsBtn('category-defaults-btn', () => DEFAULT_CATEGORIES, categories, renderCategories);
-wireDefaultsBtn('payee-defaults-btn',    () => DEFAULT_PAYEES,     payees,     renderPayees);
+/* ── Roster "Load Defaults" and "Clear" buttons ── */
+wireTwoClickBtn('people-defaults-btn',   'Load Defaults', 'Click again to confirm', () => { setRoster(people,     DEFAULT_PEOPLE);     renderPeople();     buildMainTable(); persist(); });
+wireTwoClickBtn('category-defaults-btn', 'Load Defaults', 'Click again to confirm', () => { setRoster(categories, DEFAULT_CATEGORIES); renderCategories(); buildMainTable(); persist(); });
+wireTwoClickBtn('payee-defaults-btn',    'Load Defaults', 'Click again to confirm', () => { setRoster(payees,     DEFAULT_PAYEES);     renderPayees();     buildMainTable(); persist(); });
 
-/* ── Roster "Clear" buttons ── */
-function wireClearBtn(btnId, roster, rerender) {
-  const btn = document.getElementById(btnId);
-  let armed = false, timer = null;
-  function reset() {
-    armed = false;
-    btn.textContent = 'Clear';
-    btn.classList.remove('btn-danger');
-    if (timer) { clearTimeout(timer); timer = null; }
-  }
-  btn.addEventListener('click', () => {
-    if (!armed) {
-      armed = true;
-      btn.textContent = 'Confirm clear';
-      btn.classList.add('btn-danger');
-      timer = setTimeout(reset, 3000);
-      return;
-    }
-    reset();
-    roster.length = 0;
-    rerender();
-    buildMainTable();
-    persist();
-  });
-}
-wireClearBtn('people-clear-btn',   people,     renderPeople);
-wireClearBtn('category-clear-btn', categories, renderCategories);
-wireClearBtn('payee-clear-btn',    payees,     renderPayees);
+wireTwoClickBtn('people-clear-btn',   'Clear', 'Confirm clear', () => { people.length     = 0; renderPeople();     buildMainTable(); persist(); });
+wireTwoClickBtn('category-clear-btn', 'Clear', 'Confirm clear', () => { categories.length = 0; renderCategories(); buildMainTable(); persist(); });
+wireTwoClickBtn('payee-clear-btn',    'Clear', 'Confirm clear', () => { payees.length      = 0; renderPayees();     buildMainTable(); persist(); });
 
 /* ── Shared YNAB plan lookup ── */
 async function ynabLookupPlan() {
@@ -1622,46 +1579,25 @@ wireYnabFetchBtn('payee-fetch-btn', 'Fetch from YNAB', async (plan, headers) => 
 });
 
 /* ── "Clear Local Storage" button (two-click confirm) ── */
-(function () {
-  const btn = document.getElementById('clear-storage-btn');
-  let armed = false, timer = null;
-  function reset() {
-    armed = false;
-    btn.textContent = 'Clear Local Storage';
-    btn.classList.remove('btn-danger');
-    if (timer) { clearTimeout(timer); timer = null; }
-  }
-  btn.addEventListener('click', () => {
-    if (!armed) {
-      armed = true;
-      btn.textContent = 'Click again to confirm';
-      btn.classList.add('btn-danger');
-      timer = setTimeout(reset, 3000);
-      return;
-    }
-    reset();
-    try { localStorage.removeItem(LS_KEY); } catch (_) {}
-    try { localStorage.removeItem('txn-splitter-ynab-v1'); } catch (_) {}
-    // Reset rows and numeric inputs
-    rows = [newRow()];
-    document.getElementById('default-tax-input').value = '';
-    document.getElementById('tip-input').value = '';
-    document.getElementById('fee-input').value = '';
-    // Reload rosters from config.json values
-    setRoster(people,     DEFAULT_PEOPLE);
-    setRoster(categories, DEFAULT_CATEGORIES);
-    setRoster(payees,     DEFAULT_PAYEES);
-    renderPeople(); renderCategories(); renderPayees();
-    // Reset YNAB DOM fields — API key and date clear; others restore from config.json
-    document.getElementById('ynab-api-key').value            = '';
-    document.getElementById('ynab-date').value               = new Date().toLocaleDateString('en-CA');
-    document.getElementById('ynab-budget-name').value        = DEFAULT_YNAB.budgetName;
-    document.getElementById('ynab-purchase-acct').value      = DEFAULT_YNAB.purchaseAcct;
-    document.getElementById('ynab-payable-acct').value       = DEFAULT_YNAB.payableAcct;
-    document.getElementById('ynab-receivable-acct').value    = DEFAULT_YNAB.receivableAcct;
-    fullRender();
-  });
-})();
+wireTwoClickBtn('clear-storage-btn', 'Clear Local Storage', 'Click again to confirm', () => {
+  try { localStorage.removeItem(LS_KEY); } catch (_) {}
+  try { localStorage.removeItem('txn-splitter-ynab-v1'); } catch (_) {}
+  rows = [newRow()];
+  document.getElementById('default-tax-input').value = '';
+  document.getElementById('tip-input').value = '';
+  document.getElementById('fee-input').value = '';
+  setRoster(people,     DEFAULT_PEOPLE);
+  setRoster(categories, DEFAULT_CATEGORIES);
+  setRoster(payees,     DEFAULT_PAYEES);
+  renderPeople(); renderCategories(); renderPayees();
+  document.getElementById('ynab-api-key').value         = '';
+  document.getElementById('ynab-date').value            = new Date().toLocaleDateString('en-CA');
+  document.getElementById('ynab-budget-name').value     = DEFAULT_YNAB.budgetName;
+  document.getElementById('ynab-purchase-acct').value   = DEFAULT_YNAB.purchaseAcct;
+  document.getElementById('ynab-payable-acct').value    = DEFAULT_YNAB.payableAcct;
+  document.getElementById('ynab-receivable-acct').value = DEFAULT_YNAB.receivableAcct;
+  fullRender();
+});
 
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
@@ -1726,6 +1662,9 @@ fetch('config.json')
   .catch(() => { /* use hardcoded fallbacks */ })
   .finally(() => { bootstrap(); });
 
+// Shared utilities for the YNAB script block (separate IIFE can't close over these).
+window._txnSplit = { computeRow, esc, LS_KEY };
+
 })();
 </script>
 <script>
@@ -1779,10 +1718,8 @@ function toMilliunits(dollars) {
   return Math.round(parseFloat(dollars) * 1000) || 0;
 }
 
-function escHtml(s) {
-  return String(s == null ? '' : s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+// Shared utilities from the main IIFE via the _txnSplit namespace.
+const { computeRow: _computeRow, esc: escHtml, LS_KEY: _LS_KEY } = window._txnSplit;
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -1793,29 +1730,8 @@ function getTxnDate() {
   return (el && el.value) ? el.value : todayISO();
 }
 
-/* ── Shared row computation (mirrors split tab logic) ── */
-
-const _FRAC_VAL = { '1': 1, '1/2': 0.5, '1/3': 1/3, '2/3': 2/3, '1/4': 0.25, '3/4': 0.75 };
-
-function _rowRate(r) {
-  if (!r.taxed) return 0;
-  const ov  = parseFloat(r.rateOverride);
-  const pct = (r.rateOverride !== '' && r.rateOverride != null && isFinite(ov))
-    ? ov
-    : (parseFloat(document.getElementById('default-tax-input').value) || 0);
-  return (isFinite(pct) ? pct : 0) / 100;
-}
-
-function _computeRow(r) {
-  const frac   = _FRAC_VAL[r.fraction] ?? 1;
-  const amount = parseFloat(r.amount) || 0;
-  const eff    = amount * frac;
-  const tax    = _rowRate(r) * eff;
-  return { eff, tax, total: eff + tax };
-}
-
 function _getRows() {
-  return JSON.parse(localStorage.getItem('txn-splitter-v3') || '{"rows":[]}').rows || [];
+  return JSON.parse(localStorage.getItem(_LS_KEY) || '{"rows":[]}').rows || [];
 }
 
 /* ── Build main (overall) YNAB transaction ── */
@@ -1957,7 +1873,7 @@ function buildAllYnabTransactions() {
   const all  = [];
   const main = buildMainYnabTransaction();
   if (main) all.push(main);
-  buildPersonYnabTransactions().forEach(t => all.push(t));
+  all.push(...buildPersonYnabTransactions());
   return all;
 }
 
