@@ -1442,23 +1442,23 @@ document.getElementById('email-btn').addEventListener('click', () => {
   const html = emailSummaryHTML();
   const text = emailSummaryText();
 
+  function flash(label, delay = 2500) {
+    const orig = btn.textContent;
+    btn.textContent = label;
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, delay);
+  }
+
   if (navigator.clipboard && window.ClipboardItem) {
     const htmlBlob = new Blob([html], { type: 'text/html' });
     const textBlob = new Blob([text], { type: 'text/plain' });
     navigator.clipboard.write([new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })])
-      .then(() => {
-        const orig = btn.textContent;
-        btn.textContent = 'Copied! Paste into email';
-        btn.disabled = true;
-        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
-      })
-      .catch(() => fallbackMailto(text));
+      .then(() => flash('Copied! Paste into email'))
+      .catch(() => navigator.clipboard.writeText(text).then(() => flash('Copied!')).catch(() => flash('Error', 1800)));
+  } else if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => flash('Copied!')).catch(() => flash('Error', 1800));
   } else {
-    fallbackMailto(text);
-  }
-
-  function fallbackMailto(body) {
-    window.location.href = `mailto:?subject=${encodeURIComponent('Transaction Splitter summary')}&body=${encodeURIComponent(body)}`;
+    flash('Error', 1800);
   }
 });
 
