@@ -1521,7 +1521,7 @@ wireDefaultsBtn('payee-defaults-btn',    () => DEFAULT_PAYEES,     payees,     r
     renderPeople(); renderCategories(); renderPayees();
     // Reset YNAB DOM fields — API key and date clear; others restore from config.json
     document.getElementById('ynab-api-key').value            = '';
-    document.getElementById('ynab-date').value               = '';
+    document.getElementById('ynab-date').value               = new Date().toLocaleDateString('en-CA');
     document.getElementById('ynab-budget-name').value        = DEFAULT_YNAB.budgetName;
     document.getElementById('ynab-purchase-acct').value      = DEFAULT_YNAB.purchaseAcct;
     document.getElementById('ynab-payable-acct').value       = DEFAULT_YNAB.payableAcct;
