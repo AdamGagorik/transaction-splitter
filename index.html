@@ -1253,7 +1253,7 @@ document.getElementById('fee-input').addEventListener('input', onTipFee);
 /* ── Export ── */
 document.getElementById('pdf-btn').addEventListener('click', () => { window.print(); });
 
-function emailSummaryText() {
+function buildEmailData() {
   const comp   = rows.map(computeRow);
   const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
   const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
@@ -1269,61 +1269,146 @@ function emailSummaryText() {
     cEff[c] += comp[i].eff; cTax[c] += comp[i].tax;
   });
 
-  const grand    = aOrder.reduce((s, a) => s + aSub[a], 0);
-  const shareOf  = v => grand > 1e-9 ? v / grand : 0;
-  const cats     = cOrder.filter(c => (cEff[c] + cTax[c]) > 1e-9);
+  const grand   = aOrder.reduce((s, a) => s + aSub[a], 0);
+  const shareOf = v => grand > 1e-9 ? v / grand : 0;
+  const cats    = cOrder.filter(c => (cEff[c] + cTax[c]) > 1e-9);
+  return { tipVal, feeVal, aOrder, aSub, cEff, cTax, grand, shareOf, cats };
+}
 
-  function mdTable(headers, dataRows) {
-    const h   = '| ' + headers.join(' | ') + ' |';
-    const sep = '|' + headers.map(() => ' --- ').join('|') + '|';
-    const body = dataRows.map(r => '| ' + r.join(' | ') + ' |').join('\n');
-    return [h, sep, body].join('\n');
+function emailSummaryHTML() {
+  const { tipVal, feeVal, aOrder, aSub, cEff, cTax, grand, shareOf, cats } = buildEmailData();
+
+  const S = {
+    wrap:     'font-family:Arial,sans-serif;font-size:14px;color:#1e293b;',
+    h1:       'font-size:18px;font-weight:bold;margin:0 0 4px;',
+    sub:      'font-size:13px;color:#64748b;margin:0 0 20px;',
+    h2:       'font-size:13px;font-weight:bold;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin:20px 0 6px;',
+    tbl:      'border-collapse:collapse;font-size:14px;',
+    thL:      'padding:6px 14px 6px 0;text-align:left;border-bottom:2px solid #334155;white-space:nowrap;font-weight:600;',
+    thR:      'padding:6px 0 6px 14px;text-align:right;border-bottom:2px solid #334155;white-space:nowrap;font-weight:600;',
+    tdL:      'padding:5px 14px 5px 0;border-bottom:1px solid #e2e8f0;white-space:nowrap;',
+    tdR:      'padding:5px 0 5px 14px;text-align:right;border-bottom:1px solid #e2e8f0;white-space:nowrap;font-family:monospace;font-size:13px;',
+    totL:     'padding:6px 14px 6px 0;border-top:2px solid #334155;border-bottom:none;white-space:nowrap;font-weight:bold;',
+    totR:     'padding:6px 0 6px 14px;text-align:right;border-top:2px solid #334155;border-bottom:none;white-space:nowrap;font-weight:bold;font-family:monospace;font-size:13px;',
+  };
+
+  function htmlTable(headers, dataRows) {
+    const ths = headers.map((h, i) => `<th style="${i === 0 ? S.thL : S.thR}">${esc(h)}</th>`).join('');
+    const trs = dataRows.map((row, ri) => {
+      const isTotal = ri === dataRows.length - 1;
+      const cells = row.map((cell, ci) => {
+        const s = ci === 0 ? (isTotal ? S.totL : S.tdL) : (isTotal ? S.totR : S.tdR);
+        return `<td style="${s}">${esc(String(cell))}</td>`;
+      }).join('');
+      return `<tr>${cells}</tr>`;
+    }).join('');
+    return `<table style="${S.tbl}"><thead><tr>${ths}</tr></thead><tbody>${trs}</tbody></table>`;
   }
 
-  const lines = [];
-  lines.push('TRANSACTION SUMMARY');
-  lines.push(`Total: ${fmt(grand + tipVal + feeVal)}  (items ${fmt(grand)}  tip ${fmt(tipVal)}  fee ${fmt(feeVal)})`);
-  lines.push('');
+  let html = `<div style="${S.wrap}">`;
+  html += `<p style="${S.h1}">Transaction Summary</p>`;
+  html += `<p style="${S.sub}">Items ${fmt(grand)} &nbsp;+&nbsp; Tip ${fmt(tipVal)} &nbsp;+&nbsp; Fee ${fmt(feeVal)} &nbsp;= <strong>${fmt(grand + tipVal + feeVal)}</strong></p>`;
 
   if (cats.length) {
     const totalEff = cats.reduce((s, c) => s + cEff[c], 0);
     const totalTax = cats.reduce((s, c) => s + cTax[c], 0);
     const totalAmt = totalEff + totalTax;
-
-    lines.push('BY CATEGORY');
-    lines.push('');
     const catRows = [
-      ['**Total**', fmt(totalEff), fmt(totalTax), fmt(totalAmt), fmt(tipVal), fmt(feeVal), fmt(totalAmt + tipVal + feeVal)],
       ...cats.map(c => {
         const amt = cEff[c] + cTax[c];
         const tip = shareOf(amt) * tipVal;
         const fee = shareOf(amt) * feeVal;
         return [c, fmt(cEff[c]), fmt(cTax[c]), fmt(amt), fmt(tip), fmt(fee), fmt(amt + tip + fee)];
-      })
+      }),
+      ['Total', fmt(totalEff), fmt(totalTax), fmt(totalAmt), fmt(tipVal), fmt(feeVal), fmt(totalAmt + tipVal + feeVal)],
     ];
-    lines.push(mdTable(['Category', 'Subtotal', 'Tax', 'Items', 'Tip', 'Fee', 'Total'], catRows));
-    lines.push('');
+    html += `<p style="${S.h2}">By Category</p>`;
+    html += htmlTable(['Category', 'Subtotal', 'Tax', 'Items', 'Tip', 'Fee', 'Total'], catRows);
   }
 
-  lines.push('BY PERSON');
-  lines.push('');
   const personRows = [
-    ['**Total**', fmt(grand), fmt(tipVal), fmt(feeVal), fmt(grand + tipVal + feeVal)],
     ...aOrder.map(a => {
       const tip = shareOf(aSub[a]) * tipVal;
       const fee = shareOf(aSub[a]) * feeVal;
       return [a, fmt(aSub[a]), fmt(tip), fmt(fee), fmt(aSub[a] + tip + fee)];
-    })
+    }),
+    ['Total', fmt(grand), fmt(tipVal), fmt(feeVal), fmt(grand + tipVal + feeVal)],
   ];
-  lines.push(mdTable(['Person', 'Subtotal', 'Tip', 'Fee', 'Total'], personRows));
+  html += `<p style="${S.h2}">By Person</p>`;
+  html += htmlTable(['Person', 'Subtotal', 'Tip', 'Fee', 'Total'], personRows);
+  html += '</div>';
+  return html;
+}
+
+function emailSummaryText() {
+  const { tipVal, feeVal, aOrder, aSub, cEff, cTax, grand, shareOf, cats } = buildEmailData();
+
+  function col(s, w) { return String(s).padStart(w); }
+  function row(cells, widths) { return cells.map((c, i) => col(c, widths[i])).join('  '); }
+  function divider(widths) { return widths.map(w => '-'.repeat(w)).join('  '); }
+
+  const lines = [];
+  lines.push('TRANSACTION SUMMARY');
+  lines.push(`Total: ${fmt(grand + tipVal + feeVal)}  (items ${fmt(grand)}  tip ${fmt(tipVal)}  fee ${fmt(feeVal)})`);
+
+  if (cats.length) {
+    const totalEff = cats.reduce((s, c) => s + cEff[c], 0);
+    const totalTax = cats.reduce((s, c) => s + cTax[c], 0);
+    const totalAmt = totalEff + totalTax;
+    const catW = Math.max(8, ...cats.map(c => c.length));
+    const numW = 9;
+    lines.push('', 'BY CATEGORY');
+    lines.push(row(['Category'.padEnd(catW), 'Subtotal', 'Tax     ', 'Items   ', 'Tip     ', 'Fee     ', 'Total   '], [catW, numW, numW, numW, numW, numW, numW]));
+    lines.push(divider([catW, numW, numW, numW, numW, numW, numW]));
+    cats.forEach(c => {
+      const amt = cEff[c] + cTax[c];
+      const tip = shareOf(amt) * tipVal;
+      const fee = shareOf(amt) * feeVal;
+      lines.push([c.padEnd(catW), fmt(cEff[c]).padStart(numW), fmt(cTax[c]).padStart(numW), fmt(amt).padStart(numW), fmt(tip).padStart(numW), fmt(fee).padStart(numW), fmt(amt+tip+fee).padStart(numW)].join('  '));
+    });
+    lines.push(divider([catW, numW, numW, numW, numW, numW, numW]));
+    lines.push(['Total'.padEnd(catW), fmt(totalEff).padStart(numW), fmt(totalTax).padStart(numW), fmt(totalAmt).padStart(numW), fmt(tipVal).padStart(numW), fmt(feeVal).padStart(numW), fmt(totalAmt+tipVal+feeVal).padStart(numW)].join('  '));
+  }
+
+  const nameW = Math.max(6, ...aOrder.map(a => a.length));
+  const numW  = 9;
+  lines.push('', 'BY PERSON');
+  lines.push(row(['Person'.padEnd(nameW), 'Subtotal', 'Tip     ', 'Fee     ', 'Total   '], [nameW, numW, numW, numW, numW]));
+  lines.push(divider([nameW, numW, numW, numW, numW]));
+  aOrder.forEach(a => {
+    const tip = shareOf(aSub[a]) * tipVal;
+    const fee = shareOf(aSub[a]) * feeVal;
+    lines.push([a.padEnd(nameW), fmt(aSub[a]).padStart(numW), fmt(tip).padStart(numW), fmt(fee).padStart(numW), fmt(aSub[a]+tip+fee).padStart(numW)].join('  '));
+  });
+  lines.push(divider([nameW, numW, numW, numW, numW]));
+  lines.push(['Total'.padEnd(nameW), fmt(grand).padStart(numW), fmt(tipVal).padStart(numW), fmt(feeVal).padStart(numW), fmt(grand+tipVal+feeVal).padStart(numW)].join('  '));
 
   return lines.join('\n');
 }
 
 document.getElementById('email-btn').addEventListener('click', () => {
-  const subject = 'Transaction Splitter summary';
-  const body    = emailSummaryText();
-  window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  const btn  = document.getElementById('email-btn');
+  const html = emailSummaryHTML();
+  const text = emailSummaryText();
+
+  if (navigator.clipboard && window.ClipboardItem) {
+    const htmlBlob = new Blob([html], { type: 'text/html' });
+    const textBlob = new Blob([text], { type: 'text/plain' });
+    navigator.clipboard.write([new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })])
+      .then(() => {
+        const orig = btn.textContent;
+        btn.textContent = 'Copied! Paste into email';
+        btn.disabled = true;
+        setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
+      })
+      .catch(() => fallbackMailto(text));
+  } else {
+    fallbackMailto(text);
+  }
+
+  function fallbackMailto(body) {
+    window.location.href = `mailto:?subject=${encodeURIComponent('Transaction Splitter summary')}&body=${encodeURIComponent(body)}`;
+  }
 });
 
 /* ── Roster management ── */
