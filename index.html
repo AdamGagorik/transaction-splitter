@@ -304,6 +304,8 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
 .ynab-settings-grid input[type="password"],
 .ynab-settings-grid input[type="date"] {
   width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: 7px 10px;
@@ -573,9 +575,9 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   <h2>Export</h2>
   <div class="btn-row" style="margin-top:0">
     <button class="btn-primary" id="pdf-btn">Save as PDF</button>
-    <button class="btn-secondary" id="email-btn">Email summary</button>
+    <button class="btn-secondary" id="email-btn">Copy Summary</button>
   </div>
-  <p class="empty-state" style="margin-top:8px">"Save as PDF" uses your browser's print dialog — choose "Save as PDF". "Email summary" opens your mail app with a formatted breakdown.</p>
+  <p class="empty-state" style="margin-top:8px">"Save as PDF" uses your browser's print dialog — choose "Save as PDF". "Copy Summary" copies a formatted breakdown to your clipboard — paste it into an email.</p>
 </div>
 
 </div><!-- #main-tab-split -->
@@ -1505,12 +1507,20 @@ wireDefaultsBtn('payee-defaults-btn',    () => DEFAULT_PAYEES,     payees,     r
     }
     reset();
     try { localStorage.removeItem(LS_KEY); } catch (_) {}
-    // LS_YNAB is scoped to the YNAB IIFE — clear by key name directly
     try { localStorage.removeItem('txn-splitter-ynab-v1'); } catch (_) {}
+    // Reset rows and numeric inputs
     rows = [newRow()];
-    document.getElementById('default-tax-input').value = '7';
+    document.getElementById('default-tax-input').value = '';
     document.getElementById('tip-input').value = '';
     document.getElementById('fee-input').value = '';
+    // Reload rosters from config.json values
+    setRoster(people,     DEFAULT_PEOPLE);
+    setRoster(categories, DEFAULT_CATEGORIES);
+    setRoster(payees,     DEFAULT_PAYEES);
+    renderPeople(); renderCategories(); renderPayees();
+    // Clear YNAB DOM fields
+    ['ynab-api-key','ynab-date','ynab-budget-name','ynab-purchase-acct','ynab-payable-acct','ynab-receivable-acct']
+      .forEach(id => { document.getElementById(id).value = ''; });
     fullRender();
   });
 })();
