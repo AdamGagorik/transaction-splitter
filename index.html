@@ -439,14 +439,7 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
 .people-add { display: flex; gap: 8px; align-items: center; }
 .people-add input[type="text"] { flex: 1; max-width: 240px; width: auto; }
 
-input.asgn-sel, input.cat-sel, input.payee-sel {
-  width: 132px; border: 1px solid #e2e8f0; border-radius: 5px;
-  padding: 4px 6px; font-size: 13px; font-family: inherit;
-  background: #fff; color: #1e293b; transition: border-color 0.12s;
-}
-input.asgn-sel:focus, input.cat-sel:focus, input.payee-sel:focus {
-  outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
-}
+select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 
 @media print {
   @page { size: landscape; margin: 10mm; }
@@ -490,9 +483,6 @@ input.asgn-sel:focus, input.cat-sel:focus, input.payee-sel:focus {
 </head>
 <body>
 
-<datalist id="dl-people"></datalist>
-<datalist id="dl-categories"></datalist>
-<datalist id="dl-payees"></datalist>
 
 <h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-19f</span></h1>
 
@@ -650,6 +640,7 @@ input.asgn-sel:focus, input.cat-sel:focus, input.payee-sel:focus {
     <h2>Payees</h2>
     <div style="display:flex;gap:8px">
       <button class="btn-secondary" id="payee-defaults-btn">Load Defaults</button>
+      <button class="btn-secondary" id="payee-fetch-btn">Fetch from YNAB</button>
       <button class="btn-secondary" id="payee-clear-btn">Clear</button>
     </div>
   </div>
@@ -917,11 +908,11 @@ function buildMainTable() {
             value="${esc(r.rateOverride)}" data-row="${i}" data-col="rateOverride"
             placeholder="${curDefaultRate()}"${r.taxed ? '' : ' disabled'}></td>
       <td class="td-left">
-        <input class="payee-sel" list="dl-payees" data-row="${i}" data-col="payee" value="${esc(r.payee)}" placeholder="Payee"></td>
+        <select class="payee-sel" data-row="${i}" data-col="payee">${payeeOptions(r.payee)}</select></td>
       <td class="td-left">
-        <input class="asgn-sel" list="dl-people" data-row="${i}" data-col="assignee" value="${esc(r.assignee)}" placeholder="Person"></td>
+        <select class="asgn-sel" data-row="${i}" data-col="assignee">${assigneeOptions(r.assignee)}</select></td>
       <td class="td-left">
-        <input class="cat-sel" list="dl-categories" data-row="${i}" data-col="category" value="${esc(r.category)}" placeholder="Category"></td>
+        <select class="cat-sel" data-row="${i}" data-col="category">${categoryOptions(r.category)}</select></td>
       <td class="td-center">
         <select class="frac-sel" data-row="${i}" data-col="fraction">${fracOpts}</select></td>
       <td class="computed" data-cr="${i}" data-cc="eff">${fmt(c.eff)}</td>
@@ -1240,13 +1231,6 @@ mainTbody.addEventListener('change', e => {
   partialUpdate();
 });
 
-// Also handle payee/assignee/category on input (datalist selection fires input, not change on some browsers)
-mainTbody.addEventListener('input', e => {
-  const el  = e.target;
-  const col = el.dataset.col;
-  if (col !== 'payee' && col !== 'assignee' && col !== 'category') return;
-  if (applyCell(el)) partialUpdate();
-}, { passive: true });
 
 document.getElementById('main-tbody').addEventListener('click', e => {
   const btn = e.target.closest('[data-remove]');
@@ -1478,14 +1462,9 @@ function renderRoster(roster, chipsId, emptyMsg) {
     ? roster.map((n, i) => `<span class="chip">${esc(n)}<button class="chip-x" data-idx="${i}" title="Remove">✕</button></span>`).join('')
     : `<span class="muted">${emptyMsg}</span>`;
 }
-function syncDatalist(id, items) {
-  const dl = document.getElementById(id);
-  if (!dl) return;
-  dl.innerHTML = items.map(n => `<option value="${esc(n)}">`).join('');
-}
-function renderPeople()     { renderRoster(people,     'people-chips',   'No names yet — add one below.');     syncDatalist('dl-people',     people);     }
-function renderCategories() { renderRoster(categories, 'category-chips', 'No categories yet — add one below.'); syncDatalist('dl-categories', categories); }
-function renderPayees()     { renderRoster(payees,     'payee-chips',    'No payees yet — add one below.');     syncDatalist('dl-payees',     payees);     }
+function renderPeople()     { renderRoster(people,     'people-chips',   'No names yet — add one below.'); }
+function renderCategories() { renderRoster(categories, 'category-chips', 'No categories yet — add one below.'); }
+function renderPayees()     { renderRoster(payees,     'payee-chips',    'No payees yet — add one below.'); }
 
 function wireRoster(roster, inputId, addBtnId, chipsId, rerender) {
   const inp = document.getElementById(inputId);
@@ -1546,7 +1525,23 @@ wireDefaultsBtn('payee-defaults-btn',    () => DEFAULT_PAYEES,     payees,     r
 
 /* ── Roster "Clear" buttons ── */
 function wireClearBtn(btnId, roster, rerender) {
-  document.getElementById(btnId).addEventListener('click', () => {
+  const btn = document.getElementById(btnId);
+  let armed = false, timer = null;
+  function reset() {
+    armed = false;
+    btn.textContent = 'Clear';
+    btn.classList.remove('btn-danger');
+    if (timer) { clearTimeout(timer); timer = null; }
+  }
+  btn.addEventListener('click', () => {
+    if (!armed) {
+      armed = true;
+      btn.textContent = 'Confirm clear';
+      btn.classList.add('btn-danger');
+      timer = setTimeout(reset, 3000);
+      return;
+    }
+    reset();
     roster.length = 0;
     rerender();
     buildMainTable();
@@ -1557,53 +1552,69 @@ wireClearBtn('people-clear-btn',   people,     renderPeople);
 wireClearBtn('category-clear-btn', categories, renderCategories);
 wireClearBtn('payee-clear-btn',    payees,     renderPayees);
 
-/* ── "Fetch from YNAB" categories button ── */
-(function () {
-  const btn = document.getElementById('category-fetch-btn');
-  btn.addEventListener('click', async () => {
-    const apiKey     = document.getElementById('ynab-api-key').value.trim();
-    const budgetName = document.getElementById('ynab-budget-name').value.trim();
-    if (!apiKey)     { alert('Enter your YNAB API Key on the YNAB tab first.'); return; }
-    if (!budgetName) { alert('Enter your Budget Name on the YNAB tab first.'); return; }
+/* ── Shared YNAB plan lookup ── */
+async function ynabLookupPlan() {
+  const apiKey     = document.getElementById('ynab-api-key').value.trim();
+  const budgetName = document.getElementById('ynab-budget-name').value.trim();
+  if (!apiKey)     throw new Error('Enter your YNAB API Key on the YNAB tab first.');
+  if (!budgetName) throw new Error('Enter your Budget Name on the YNAB tab first.');
+  const headers  = { 'Authorization': 'Bearer ' + apiKey };
+  const res      = await fetch('https://api.ynab.com/v1/plans', { headers });
+  if (!res.ok) throw new Error('API error ' + res.status);
+  const plans    = (await res.json()).data.plans || [];
+  const plan     = plans.find(p => p.name === budgetName);
+  if (!plan) throw new Error(`Budget "${budgetName}" not found`);
+  return { plan, headers };
+}
 
+function wireYnabFetchBtn(btnId, fetchLabel, handler) {
+  const btn = document.getElementById(btnId);
+  btn.addEventListener('click', async () => {
     const orig = btn.textContent;
     btn.textContent = 'Fetching…';
     btn.disabled = true;
-
     try {
-      const headers = { 'Authorization': 'Bearer ' + apiKey };
-      const plansRes = await fetch('https://api.ynab.com/v1/plans', { headers });
-      if (!plansRes.ok) throw new Error('API error ' + plansRes.status);
-      const plans = (await plansRes.json()).data.plans || [];
-      const plan  = plans.find(p => p.name === budgetName);
-      if (!plan) throw new Error(`Budget "${budgetName}" not found`);
-
-      const catsRes = await fetch(`https://api.ynab.com/v1/plans/${plan.id}/categories`, { headers });
-      if (!catsRes.ok) throw new Error('API error ' + catsRes.status);
-      const groups = (await catsRes.json()).data.category_groups || [];
-
-      const fetched = [];
-      groups.forEach(g => {
-        if (g.hidden || g.deleted) return;
-        (g.categories || []).forEach(c => {
-          if (c.hidden || c.deleted) return;
-          fetched.push(g.name + ' : ' + c.name);
-        });
-      });
-
-      fetched.forEach(name => { if (!categories.includes(name)) categories.push(name); });
-      renderCategories();
-      buildMainTable();
-      persist();
-      btn.textContent = `Added ${fetched.length} categories`;
+      const { plan, headers } = await ynabLookupPlan();
+      const label = await handler(plan, headers);
+      btn.textContent = label;
       setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 2500);
     } catch (err) {
       btn.textContent = orig;
       btn.disabled = false;
-      alert('Failed to fetch categories: ' + err.message);
+      alert(err.message);
     }
   });
-})();
+}
+
+wireYnabFetchBtn('category-fetch-btn', 'Fetch from YNAB', async (plan, headers) => {
+  const res    = await fetch(`https://api.ynab.com/v1/plans/${plan.id}/categories`, { headers });
+  if (!res.ok) throw new Error('API error ' + res.status);
+  const groups = (await res.json()).data.category_groups || [];
+  const fetched = [];
+  groups.forEach(g => {
+    if (g.hidden || g.deleted) return;
+    (g.categories || []).forEach(c => {
+      if (c.hidden || c.deleted) return;
+      fetched.push(g.name + ' : ' + c.name);
+    });
+  });
+  fetched.forEach(name => { if (!categories.includes(name)) categories.push(name); });
+  renderCategories(); buildMainTable(); persist();
+  return `Added ${fetched.length} categories`;
+});
+
+wireYnabFetchBtn('payee-fetch-btn', 'Fetch from YNAB', async (plan, headers) => {
+  const res     = await fetch(`https://api.ynab.com/v1/plans/${plan.id}/payees`, { headers });
+  if (!res.ok) throw new Error('API error ' + res.status);
+  const ynabPayees = (await res.json()).data.payees || [];
+  const fetched = ynabPayees
+    .filter(p => !p.deleted)
+    .map(p => p.name)
+    .filter(name => name && !payees.includes(name));
+  fetched.forEach(name => payees.push(name));
+  renderPayees(); buildMainTable(); persist();
+  return `Added ${fetched.length} payees`;
+});
 
 /* ── "Clear Local Storage" button (two-click confirm) ── */
 (function () {
