@@ -448,6 +448,7 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   #main-tab-split  { display: block !important; }
   #main-tab-config { display: none  !important; }
   #main-tab-ynab   { display: none  !important; }
+  #main-tab-readme { display: none  !important; }
   .main-tabs       { display: none  !important; }
   #cat-view-grouped, #cat-view-matrix { display: block !important; }
   .overflow-x { overflow: visible !important; }
@@ -474,6 +475,7 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   <button class="main-tab-btn active" data-main-tab="split">Split</button>
   <button class="main-tab-btn" data-main-tab="ynab">YNAB</button>
   <button class="main-tab-btn" data-main-tab="config">Config</button>
+  <button class="main-tab-btn" data-main-tab="readme">README</button>
 </div>
 
 <div id="main-tab-split">
@@ -631,6 +633,50 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 </div>
 
 </div><!-- #main-tab-config -->
+
+<div id="main-tab-readme" style="display:none">
+<div class="card" style="max-width:680px">
+
+  <h2 style="margin-top:0">Transaction Splitter</h2>
+  <p style="margin:0 0 6px">Split shared purchases across people and categories, then push transactions directly to YNAB.</p>
+  <p style="margin:0 0 20px;font-size:13px;color:#64748b">
+    <a href="https://github.com/AdamGagorik/transaction-splitter" target="_blank" style="color:#6366f1">GitHub</a>
+    &nbsp;·&nbsp;
+    <a href="https://adamgagorik.github.io/transaction-splitter/" target="_blank" style="color:#6366f1">Live app</a>
+  </p>
+
+  <h3 style="margin:0 0 8px;font-size:14px;font-weight:600;color:#334155">Quick start</h3>
+  <ol style="margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.8">
+    <li>Enter each item on the <strong>Split</strong> tab — amount, payee, category, who it's for, and what fraction they owe.</li>
+    <li>Add a tip or fee at the bottom if needed; tax is applied per-row when checked.</li>
+    <li>The <strong>By Category</strong> and <strong>By Person</strong> tables update automatically.</li>
+    <li>Use <strong>Copy Summary</strong> to copy a formatted breakdown and paste it into an email.</li>
+    <li>Use <strong>Save as PDF</strong> to print or export.</li>
+  </ol>
+
+  <h3 style="margin:0 0 8px;font-size:14px;font-weight:600;color:#334155">YNAB integration</h3>
+  <ol style="margin:0 0 8px;padding-left:20px;font-size:14px;line-height:1.8">
+    <li>Go to <strong>app.ynab.com → My Budget → Account Settings → Developer Settings</strong> and create a Personal Access Token.</li>
+    <li>Paste the token into the <strong>API Key</strong> field on the YNAB tab.</li>
+    <li>Set your budget name, purchase account, and tracking accounts (Payable / Receivable).</li>
+    <li>On the YNAB tab, review each transaction preview, choose the direction (you owe / owed to you) per person, then click <strong>Submit to YNAB</strong>.</li>
+  </ol>
+  <p style="margin:0 0 20px;font-size:13px;color:#64748b">Categories are matched by name to your YNAB budget at submit time. Use <em>Group : Category</em> format in the Split tab (e.g. <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px">Food : Groceries</code>) to match YNAB's group and category names.</p>
+
+  <h3 style="margin:0 0 8px;font-size:14px;font-weight:600;color:#334155">Add to iPhone home screen</h3>
+  <ol style="margin:0 0 20px;padding-left:20px;font-size:14px;line-height:1.8">
+    <li>Open <strong><a href="https://adamgagorik.github.io/transaction-splitter/" target="_blank" style="color:#6366f1">adamgagorik.github.io/transaction-splitter</a></strong> in Safari.</li>
+    <li>Tap the <strong>Share</strong> button (box with arrow at the bottom of the screen).</li>
+    <li>Scroll down and tap <strong>Add to Home Screen</strong>.</li>
+    <li>Tap <strong>Add</strong>. The app will open full-screen like a native app.</li>
+  </ol>
+
+  <h3 style="margin:0 0 8px;font-size:14px;font-weight:600;color:#334155">Config tab</h3>
+  <p style="margin:0 0 4px;font-size:14px">The <strong>Config</strong> tab lets you manage the default rosters for people, categories, and payees shown in the dropdowns. <strong>Load Defaults</strong> reloads from <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px">config.json</code>. <strong>Clear Local Storage</strong> resets everything — rows, settings, and YNAB fields — back to defaults.</p>
+  <p style="margin:16px 0 0;font-size:13px;color:#64748b">All data is stored locally in your browser. Nothing is sent anywhere except directly to the YNAB API when you click Submit.</p>
+
+</div>
+</div><!-- #main-tab-readme -->
 
 <div id="main-tab-ynab" style="display:none">
 
@@ -1547,6 +1593,7 @@ document.querySelectorAll('.main-tab-btn').forEach(btn => {
     document.getElementById('main-tab-split').style.display  = tab === 'split'  ? '' : 'none';
     document.getElementById('main-tab-config').style.display = tab === 'config' ? '' : 'none';
     document.getElementById('main-tab-ynab').style.display   = tab === 'ynab'   ? '' : 'none';
+    document.getElementById('main-tab-readme').style.display = tab === 'readme' ? '' : 'none';
   });
 });
 
