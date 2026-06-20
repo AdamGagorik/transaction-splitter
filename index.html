@@ -1242,7 +1242,11 @@ document.getElementById('main-tbody').addEventListener('click', e => {
 });
 
 document.getElementById('add-row-btn').addEventListener('click', () => {
-  rows.push(newRow());
+  const prev = rows.length ? rows[rows.length - 1] : null;
+  const row  = prev
+    ? { ...prev, amount: '', rateOverride: '' }
+    : newRow();
+  rows.push(row);
   fullRender();
   const newIdx = rows.length - 1;
   const el = document.querySelector(`[data-row="${newIdx}"][data-col="amount"]`);
