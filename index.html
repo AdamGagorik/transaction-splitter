@@ -1464,65 +1464,106 @@ document.getElementById('email-btn').addEventListener('click', () => {
 
 /* ── Per-person summary copy ── */
 
-function buildSinglePersonSummaryText(person) {
+function buildPersonSummaryParts(person) {
   const comp   = rows.map(computeRow);
   const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
   const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
 
-  const asgnOrder = [], asgnSet = new Set(), asgnSub = {};
+  let grandTotal = 0;
+  rows.forEach((r, i) => { grandTotal += comp[i].total; });
+
+  let pEff = 0, pTax = 0;
   rows.forEach((r, i) => {
-    const asgn = norm(r.assignee, '(unassigned)');
-    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); asgnSub[asgn] = 0; }
-    asgnSub[asgn] += comp[i].total;
+    if (norm(r.assignee, '(unassigned)') !== person) return;
+    pEff += comp[i].eff;
+    pTax += comp[i].tax;
   });
+  const pSub = pEff + pTax;
+  const share = grandTotal > 1e-9 ? pSub / grandTotal : 0;
+  const pTip  = share * tipVal;
+  const pFee  = share * feeVal;
+  const pTot  = pSub + pTip + pFee;
 
-  const grandTotal = asgnOrder.reduce((s, a) => s + asgnSub[a], 0);
-  const sub   = asgnSub[person] || 0;
-  const share = grandTotal > 1e-9 ? sub / grandTotal : 0;
-  const tip   = share * tipVal;
-  const fee   = share * feeVal;
-  const total = sub + tip + fee;
-
-  // Per-category breakdown for this person
-  const catOrder = [], catSet = new Set(), catSub = {};
+  const catOrder = [], catSet = new Set(), catEff = {}, catTax = {};
   rows.forEach((r, i) => {
     if (norm(r.assignee, '(unassigned)') !== person) return;
     const cat = norm(r.category, '(uncategorized)');
-    if (!catSet.has(cat)) { catSet.add(cat); catOrder.push(cat); catSub[cat] = 0; }
-    catSub[cat] += comp[i].total;
+    if (!catSet.has(cat)) { catSet.add(cat); catOrder.push(cat); catEff[cat] = 0; catTax[cat] = 0; }
+    catEff[cat] += comp[i].eff;
+    catTax[cat] += comp[i].tax;
   });
 
-  const lines = [];
-  lines.push(`${person}: ${fmt(total)}`);
-  if (catOrder.length > 1 || (catOrder.length === 1 && catOrder[0] !== '(uncategorized)')) {
-    catOrder.forEach(c => { lines.push(`  ${c}: ${fmt(catSub[c])}`); });
-  }
-  const extras = [];
-  if (tip > 0.001) extras.push(`tip ${fmt(tip)}`);
-  if (fee > 0.001) extras.push(`fee ${fmt(fee)}`);
-  if (extras.length) lines.push(`  (includes ${extras.join(', ')})`);
+  return { person, pEff, pTax, pTip, pFee, pTot, catOrder, catEff, catTax, grandTotal, tipVal, feeVal };
+}
 
+function fmtComponents(eff, tax, tip, fee) {
+  const parts = [fmt(eff)];
+  if (tax > 0.001) parts.push(fmt(tax));
+  if (tip > 0.001) parts.push(fmt(tip));
+  if (fee > 0.001) parts.push(fmt(fee));
+  return parts.join(' + ');
+}
+
+function buildSinglePersonSummaryText(person) {
+  const { pEff, pTax, pTip, pFee, pTot, catOrder, catEff, catTax, grandTotal, tipVal, feeVal } = buildPersonSummaryParts(person);
+  const showCats = catOrder.length > 1 || (catOrder.length === 1 && catOrder[0] !== '(uncategorized)');
+  const lines = [`# ${person}`, '', `- ${fmtComponents(pEff, pTax, pTip, pFee)} = ${fmt(pTot)}`];
+  if (showCats) {
+    catOrder.forEach(cat => {
+      const cEff = catEff[cat], cTax = catTax[cat], cSub = cEff + cTax;
+      const cTip = grandTotal > 1e-9 ? cSub / grandTotal * tipVal : 0;
+      const cFee = grandTotal > 1e-9 ? cSub / grandTotal * feeVal : 0;
+      lines.push(`- ${fmtComponents(cEff, cTax, cTip, cFee)} = ${fmt(cSub + cTip + cFee)}  ${cat}`);
+    });
+  }
   return lines.join('\n');
 }
 
-document.getElementById('sum-tbody').addEventListener('click', e => {
-  const btn = e.target.closest('[data-copy-person]');
-  if (!btn) return;
-  const person = btn.dataset.copyPerson;
-  const text   = buildSinglePersonSummaryText(person);
+function buildSinglePersonSummaryHTML(person) {
+  const { pEff, pTax, pTip, pFee, pTot, catOrder, catEff, catTax, grandTotal, tipVal, feeVal } = buildPersonSummaryParts(person);
+  const showCats = catOrder.length > 1 || (catOrder.length === 1 && catOrder[0] !== '(uncategorized)');
+  const mono = 'font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13px;color:#1e293b;line-height:1.7;';
+  let html = `<div style="${mono}">`;
+  html += `<div style="font-weight:bold;"># ${esc(person)}</div>`;
+  html += `<div>- ${fmtComponents(pEff, pTax, pTip, pFee)} = ${fmt(pTot)}</div>`;
+  if (showCats) {
+    catOrder.forEach(cat => {
+      const cEff = catEff[cat], cTax = catTax[cat], cSub = cEff + cTax;
+      const cTip = grandTotal > 1e-9 ? cSub / grandTotal * tipVal : 0;
+      const cFee = grandTotal > 1e-9 ? cSub / grandTotal * feeVal : 0;
+      html += `<div style="padding-left:1em;">- ${fmtComponents(cEff, cTax, cTip, cFee)} = ${fmt(cSub + cTip + cFee)}  ${esc(cat)}</div>`;
+    });
+  }
+  html += '</div>';
+  return html;
+}
 
+function clipboardWrite(text, html, btn) {
   function flash(label) {
     const orig = btn.textContent;
     btn.textContent = label;
     btn.disabled = true;
     setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
   }
-
-  if (navigator.clipboard) {
+  if (navigator.clipboard && window.ClipboardItem) {
+    navigator.clipboard.write([new ClipboardItem({
+      'text/html':  new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([text], { type: 'text/plain' }),
+    })]).then(() => flash('Copied!')).catch(() =>
+      navigator.clipboard.writeText(text).then(() => flash('Copied!')).catch(() => flash('Error'))
+    );
+  } else if (navigator.clipboard) {
     navigator.clipboard.writeText(text).then(() => flash('Copied!')).catch(() => flash('Error'));
   } else {
     flash('Error');
   }
+}
+
+document.getElementById('sum-tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-copy-person]');
+  if (!btn) return;
+  const person = btn.dataset.copyPerson;
+  clipboardWrite(buildSinglePersonSummaryText(person), buildSinglePersonSummaryHTML(person), btn);
 });
 
 /* ── Copy All summaries ── */
@@ -1531,30 +1572,16 @@ document.getElementById('sum-tbody').addEventListener('click', e => {
   const btn = e.target.closest('#copy-all-btn');
   if (!btn) return;
 
-  const comp      = rows.map(computeRow);
-  const tipVal    = parseFloat(document.getElementById('tip-input').value) || 0;
-  const feeVal    = parseFloat(document.getElementById('fee-input').value) || 0;
-  const asgnOrder = [], asgnSet = new Set(), asgnSub = {};
+  const comp = rows.map(computeRow);
+  const asgnOrder = [], asgnSet = new Set();
   rows.forEach((r, i) => {
     const asgn = norm(r.assignee, '(unassigned)');
-    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); asgnSub[asgn] = 0; }
-    asgnSub[asgn] += comp[i].total;
+    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); }
   });
 
   const text = asgnOrder.map(p => buildSinglePersonSummaryText(p)).join('\n\n');
-
-  function flash(label) {
-    const orig = btn.textContent;
-    btn.textContent = label;
-    btn.disabled = true;
-    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
-  }
-
-  if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => flash('Copied!')).catch(() => flash('Error'));
-  } else {
-    flash('Error');
-  }
+  const html = `<div>${asgnOrder.map(p => buildSinglePersonSummaryHTML(p)).join('<br>')}</div>`;
+  clipboardWrite(text, html, btn);
 });
 
 /* ── Roster management ── */
