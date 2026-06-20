@@ -484,7 +484,7 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 <body>
 
 
-<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-19f</span></h1>
+<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-20a</span></h1>
 
 <div class="main-tabs no-print">
   <button class="main-tab-btn active" data-main-tab="split">Split</button>
@@ -580,6 +580,7 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
           <th>Tip Share</th>
           <th>Fee Share</th>
           <th>Final Owed</th>
+          <th class="th-center"></th>
         </tr>
       </thead>
       <tbody id="sum-tbody"></tbody>
@@ -1123,6 +1124,7 @@ function buildSummaryTable() {
       <td class="computed">${fmt(tip)}</td>
       <td class="computed">${fmt(fee)}</td>
       <td class="computed">${fmt(final)}</td>
+      <td class="td-center"><button class="btn-secondary" style="font-size:11px;padding:3px 9px" data-copy-person="${esc(asgn)}">Copy</button></td>
     </tr>`;
   });
 
@@ -1134,6 +1136,7 @@ function buildSummaryTable() {
     <td class="computed">${fmt(sumTip)}</td>
     <td class="computed">${fmt(sumFee)}</td>
     <td class="computed">${fmt(sumFinal)}</td>
+    <td></td>
   </tr>`;
 
   document.getElementById('sum-tbody').innerHTML = html;
@@ -1456,6 +1459,69 @@ document.getElementById('email-btn').addEventListener('click', () => {
 
   function fallbackMailto(body) {
     window.location.href = `mailto:?subject=${encodeURIComponent('Transaction Splitter summary')}&body=${encodeURIComponent(body)}`;
+  }
+});
+
+/* ── Per-person summary copy ── */
+
+function buildSinglePersonSummaryText(person) {
+  const comp   = rows.map(computeRow);
+  const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
+  const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
+
+  const asgnOrder = [], asgnSet = new Set(), asgnSub = {};
+  rows.forEach((r, i) => {
+    const asgn = norm(r.assignee, '(unassigned)');
+    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); asgnSub[asgn] = 0; }
+    asgnSub[asgn] += comp[i].total;
+  });
+
+  const grandTotal = asgnOrder.reduce((s, a) => s + asgnSub[a], 0);
+  const sub   = asgnSub[person] || 0;
+  const share = grandTotal > 1e-9 ? sub / grandTotal : 0;
+  const tip   = share * tipVal;
+  const fee   = share * feeVal;
+  const total = sub + tip + fee;
+
+  // Per-category breakdown for this person
+  const catOrder = [], catSet = new Set(), catSub = {};
+  rows.forEach((r, i) => {
+    if (norm(r.assignee, '(unassigned)') !== person) return;
+    const cat = norm(r.category, '(uncategorized)');
+    if (!catSet.has(cat)) { catSet.add(cat); catOrder.push(cat); catSub[cat] = 0; }
+    catSub[cat] += comp[i].total;
+  });
+
+  const lines = [];
+  lines.push(`${person}: ${fmt(total)}`);
+  if (catOrder.length > 1 || (catOrder.length === 1 && catOrder[0] !== '(uncategorized)')) {
+    catOrder.forEach(c => { lines.push(`  ${c}: ${fmt(catSub[c])}`); });
+  }
+  const extras = [];
+  if (tip > 0.001) extras.push(`tip ${fmt(tip)}`);
+  if (fee > 0.001) extras.push(`fee ${fmt(fee)}`);
+  if (extras.length) lines.push(`  (includes ${extras.join(', ')})`);
+
+  return lines.join('\n');
+}
+
+document.getElementById('sum-tbody').addEventListener('click', e => {
+  const btn = e.target.closest('[data-copy-person]');
+  if (!btn) return;
+  const person = btn.dataset.copyPerson;
+  const text   = buildSinglePersonSummaryText(person);
+
+  function flash(label) {
+    const orig = btn.textContent;
+    btn.textContent = label;
+    btn.disabled = true;
+    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1800);
+  }
+
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => flash('Copied!')).catch(() => flash('Error'));
+  } else {
+    flash('Error');
   }
 });
 
