@@ -679,10 +679,10 @@ if ('serviceWorker' in navigator) {
 const FRAC_OPTS = ['1', '1/2', '1/3', '2/3', '1/4', '3/4'];
 const FRAC_VAL  = { '1': 1, '1/2': 0.5, '1/3': 1/3, '2/3': 2/3, '1/4': 0.25, '3/4': 0.75 };
 const LS_KEY    = 'txn-splitter-v3';
-// Populated from config.json at startup; hardcoded values are the offline fallback.
-let DEFAULT_PEOPLE     = ['Adam', 'Dad', 'Mom', 'Doug', 'Ian', 'Ethan'];
-let DEFAULT_CATEGORIES = ['Food', 'Groceries', 'Kitchen', 'Bathroom', 'Personal', 'Laundry', 'Event'];
-let DEFAULT_PAYEES     = ['Costco', 'Giant Eagle', 'Target', 'Walmart', "Trader Joe's", 'Whole Foods', "Sam's Club"];
+// Populated from config.json at startup.
+let DEFAULT_PEOPLE     = [];
+let DEFAULT_CATEGORIES = [];
+let DEFAULT_PAYEES     = [];
 
 /* ── State ─────────────────────────────────────────────────────────── */
 
@@ -1372,7 +1372,7 @@ wireRoster(categories, 'category-input', 'category-add-btn', 'category-chips', r
 wireRoster(payees,     'payee-input',    'payee-add-btn',    'payee-chips',    renderPayees);
 
 /* ── Roster "Load Defaults" buttons (two-click confirm) ── */
-function wireDefaultsBtn(btnId, defaultsArr, roster, rerender) {
+function wireDefaultsBtn(btnId, getDefaults, roster, rerender) {
   const btn = document.getElementById(btnId);
   let armed = false, timer = null;
   function reset() {
@@ -1390,15 +1390,15 @@ function wireDefaultsBtn(btnId, defaultsArr, roster, rerender) {
       return;
     }
     reset();
-    setRoster(roster, defaultsArr);
+    setRoster(roster, getDefaults());
     rerender();
     buildMainTable();
     persist();
   });
 }
-wireDefaultsBtn('people-defaults-btn',   DEFAULT_PEOPLE,     people,     renderPeople);
-wireDefaultsBtn('category-defaults-btn', DEFAULT_CATEGORIES, categories, renderCategories);
-wireDefaultsBtn('payee-defaults-btn',    DEFAULT_PAYEES,     payees,     renderPayees);
+wireDefaultsBtn('people-defaults-btn',   () => DEFAULT_PEOPLE,     people,     renderPeople);
+wireDefaultsBtn('category-defaults-btn', () => DEFAULT_CATEGORIES, categories, renderCategories);
+wireDefaultsBtn('payee-defaults-btn',    () => DEFAULT_PAYEES,     payees,     renderPayees);
 
 /* ── "Clear Local Storage" button (two-click confirm) ── */
 (function () {
