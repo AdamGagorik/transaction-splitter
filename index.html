@@ -1966,18 +1966,27 @@ async function submitToYnab(idx) {
     const catsData = await catsRes.json();
     const categoryMap = {};
     (catsData.data.category_groups || []).forEach(g => {
-      (g.categories || []).forEach(c => { categoryMap[c.name] = c.id; });
+      (g.categories || []).forEach(c => {
+        categoryMap[c.name] = c.id;                   // "Groceries"
+        categoryMap[g.name + ' : ' + c.name] = c.id; // "Food : Groceries"
+      });
     });
 
     const payload = JSON.parse(JSON.stringify(t.payload));
     payload.transaction.account_id = account.id;
+    const unresolved = [];
     (payload.transaction.subtransactions || []).forEach(sub => {
       if (sub.category_name) {
         const id = categoryMap[sub.category_name];
-        if (id) sub.category_id = id;
+        if (id) { sub.category_id = id; }
+        else { unresolved.push(sub.category_name); }
         delete sub.category_name;
       }
     });
+    if (unresolved.length) {
+      const available = Object.keys(categoryMap).filter(k => k.includes(' : ')).join(', ') || Object.keys(categoryMap).join(', ');
+      throw new Error(`Category not found: "${unresolved[0]}". Available: ${available}`);
+    }
 
     statusEl.textContent = 'Submitting transaction…';
     const txnRes  = await fetch(`${YNAB_API}/plans/${plan.id}/transactions`, {
