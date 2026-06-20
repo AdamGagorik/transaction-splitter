@@ -1608,10 +1608,11 @@ wireYnabFetchBtn('payee-fetch-btn', 'Fetch from YNAB', async (plan, headers) => 
   if (!res.ok) throw new Error('API error ' + res.status);
   const ynabPayees = (await res.json()).data.payees || [];
   const fetched = ynabPayees
-    .filter(p => !p.deleted)
+    .filter(p => !p.deleted && !p.transfer_account_id)
     .map(p => p.name)
     .filter(name => name && !payees.includes(name));
   fetched.forEach(name => payees.push(name));
+  payees.sort((a, b) => a.localeCompare(b));
   renderPayees(); buildMainTable(); persist();
   return `Added ${fetched.length} payees`;
 });
