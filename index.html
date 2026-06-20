@@ -1719,12 +1719,12 @@ function buildMainYnabTransaction() {
   const subtransactions = [];
   catOrder.forEach(cat => {
     const d = catData[cat];
-    if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(-d.eff), payee_name: d.payee, category_name: cat, memo: cat });
-    if (d.tax > 1e-9) subtransactions.push({ amount: toMilliunits(-d.tax), payee_name: 'Sales Tax', category_name: cat, memo: cat + ' (tax)' });
+    if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(-d.eff), payee_name: d.payee, category_name: cat });
+    if (d.tax > 1e-9) subtransactions.push({ amount: toMilliunits(-d.tax), payee_name: 'Sales Tax', category_name: cat });
   });
   const primaryCat = catOrder[0] || undefined;
-  if (tipVal > 1e-9) subtransactions.push({ amount: toMilliunits(-tipVal), payee_name: 'Tip', category_name: primaryCat, memo: 'Tip' });
-  if (feeVal > 1e-9) subtransactions.push({ amount: toMilliunits(-feeVal), payee_name: 'Fee', category_name: primaryCat, memo: 'Fee' });
+  if (tipVal > 1e-9) subtransactions.push({ amount: toMilliunits(-tipVal), payee_name: 'Tip', category_name: primaryCat });
+  if (feeVal > 1e-9) subtransactions.push({ amount: toMilliunits(-feeVal), payee_name: 'Fee', category_name: primaryCat });
 
   return {
     type: 'main',
@@ -1789,12 +1789,12 @@ function buildPersonYnabTransactions() {
     const subtransactions = [];
     cats.forEach(cat => {
       const d = personData[person][cat];
-      if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.eff), payee_name: d.payee, category_name: cat, memo: cat });
-      if (d.tax > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.tax), payee_name: 'Sales Tax', category_name: cat, memo: cat + ' (tax)' });
+      if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.eff), payee_name: d.payee, category_name: cat });
+      if (d.tax > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.tax), payee_name: 'Sales Tax', category_name: cat });
     });
     const primaryCat = cats[0] || undefined;
-    if (personTip > 1e-9) subtransactions.push({ amount: toMilliunits(sign * personTip), payee_name: 'Tip', category_name: primaryCat, memo: 'Tip' });
-    if (personFee > 1e-9) subtransactions.push({ amount: toMilliunits(sign * personFee), payee_name: 'Fee', category_name: primaryCat, memo: 'Fee' });
+    if (personTip > 1e-9) subtransactions.push({ amount: toMilliunits(sign * personTip), payee_name: 'Tip', category_name: primaryCat });
+    if (personFee > 1e-9) subtransactions.push({ amount: toMilliunits(sign * personFee), payee_name: 'Fee', category_name: primaryCat });
 
     results.push({
       type:      'person',
@@ -1960,8 +1960,24 @@ async function submitToYnab(idx) {
     const account  = accounts.find(a => a.name === acctName);
     if (!account) throw new Error(`Account "${acctName}" not found. Available: ${accounts.map(a => a.name).join(', ')}`);
 
+    statusEl.textContent = 'Looking up categories…';
+    const catsRes = await fetch(`${YNAB_API}/plans/${plan.id}/categories`, { headers });
+    if (!catsRes.ok) throw new Error('Failed to fetch categories: ' + catsRes.status + ' ' + await catsRes.text());
+    const catsData = await catsRes.json();
+    const categoryMap = {};
+    (catsData.data.category_groups || []).forEach(g => {
+      (g.categories || []).forEach(c => { categoryMap[c.name] = c.id; });
+    });
+
     const payload = JSON.parse(JSON.stringify(t.payload));
     payload.transaction.account_id = account.id;
+    (payload.transaction.subtransactions || []).forEach(sub => {
+      if (sub.category_name) {
+        const id = categoryMap[sub.category_name];
+        if (id) sub.category_id = id;
+        delete sub.category_name;
+      }
+    });
 
     statusEl.textContent = 'Submitting transaction…';
     const txnRes  = await fetch(`${YNAB_API}/plans/${plan.id}/transactions`, {
