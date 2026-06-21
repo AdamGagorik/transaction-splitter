@@ -867,6 +867,12 @@ function rowSplits(r) {
   return [{ assignee: r.assignee || '', fraction: r.fraction || '1' }];
 }
 
+function applyEqualFractions(splits) {
+  const map = { 1: '1', 2: '1/2', 3: '1/3', 4: '1/4' };
+  const frac = map[splits.length];
+  if (frac) splits.forEach(s => { s.fraction = frac; });
+}
+
 function curDefaultRate() {
   const v = parseFloat(document.getElementById('default-tax-input').value);
   return isFinite(v) ? v : 0;
@@ -1492,7 +1498,12 @@ mainCards.addEventListener('click', e => {
     const sidx = parseInt(removeSplit.dataset.split, 10);
     if (!isNaN(idx) && !isNaN(sidx) && rows[idx]) {
       const splits = rowSplits(rows[idx]);
-      if (splits.length > 1) { splits.splice(sidx, 1); rows[idx].splits = splits; fullRender(); }
+      if (splits.length > 1) {
+        splits.splice(sidx, 1);
+        rows[idx].splits = splits;
+        applyEqualFractions(splits);
+        fullRender();
+      }
     }
     return;
   }
@@ -1501,7 +1512,11 @@ mainCards.addEventListener('click', e => {
     const idx = parseInt(addSplit.dataset.addSplit, 10);
     if (!isNaN(idx) && rows[idx]) {
       if (!rows[idx].splits) rows[idx].splits = rowSplits(rows[idx]);
-      rows[idx].splits.push({ assignee: DEFAULT_PEOPLE[0] || '', fraction: '1' });
+      const splits   = rows[idx].splits;
+      const usedNames = new Set(splits.map(s => s.assignee));
+      const nextPerson = people.find(p => !usedNames.has(p)) || DEFAULT_PEOPLE.find(p => !usedNames.has(p)) || '';
+      splits.push({ assignee: nextPerson, fraction: '1' });
+      applyEqualFractions(splits);
       fullRender();
     }
     return;
