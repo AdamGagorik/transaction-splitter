@@ -634,11 +634,11 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
       <thead>
         <tr>
           <th class="th-left">Assignee</th>
-          <th>Subtotal</th>
-          <th>Share %</th>
-          <th>Tip Share</th>
-          <th>Fee Share</th>
-          <th>Final Owed</th>
+          <th style="white-space:nowrap">Subtotal</th>
+          <th style="white-space:nowrap">%</th>
+          <th style="white-space:nowrap">Tip</th>
+          <th style="white-space:nowrap">Fee</th>
+          <th style="white-space:nowrap">Owed</th>
           <th class="th-center"></th>
         </tr>
       </thead>
@@ -1303,14 +1303,19 @@ function buildSummaryTable() {
 
   const grandTotal = asgnOrder.reduce((s, a) => s + asgnSub[a], 0);
 
+  const tipExact = asgnOrder.map(a => grandTotal > 1e-9 ? asgnSub[a] / grandTotal * tipVal : 0);
+  const feeExact = asgnOrder.map(a => grandTotal > 1e-9 ? asgnSub[a] / grandTotal * feeVal : 0);
+  const tipCents = reconcileCents(tipExact, grandTotal > 1e-9 ? tipVal : 0, 'sum-tip');
+  const feeCents = reconcileCents(feeExact, grandTotal > 1e-9 ? feeVal : 0, 'sum-fee');
+
   let html = '';
   let sumSub = 0, sumTip = 0, sumFee = 0, sumFinal = 0;
 
-  asgnOrder.forEach(asgn => {
+  asgnOrder.forEach((asgn, idx) => {
     const sub   = asgnSub[asgn];
     const share = grandTotal > 1e-9 ? sub / grandTotal : 0;
-    const tip   = share * tipVal;
-    const fee   = share * feeVal;
+    const tip   = tipCents[idx] / 100;
+    const fee   = feeCents[idx] / 100;
     const final = sub + tip + fee;
     sumSub   += sub;
     sumTip   += tip;
@@ -1318,24 +1323,24 @@ function buildSummaryTable() {
     sumFinal += final;
     html += `<tr>
       <td class="td-left">${esc(asgn)}</td>
-      <td class="computed">${fmt(sub)}</td>
-      <td class="computed">${(share * 100).toFixed(2)}%</td>
-      <td class="computed">${fmt(tip)}</td>
-      <td class="computed">${fmt(fee)}</td>
-      <td class="computed">${fmt(final)}</td>
-      <td class="td-center"><button class="btn-secondary" style="font-size:11px;padding:3px 9px" data-copy-person="${esc(asgn)}">Copy</button></td>
+      <td class="computed" style="white-space:nowrap">${fmt(sub)}</td>
+      <td class="computed" style="white-space:nowrap">${(share * 100).toFixed(1)}%</td>
+      <td class="computed" style="white-space:nowrap">${fmt(tip)}</td>
+      <td class="computed" style="white-space:nowrap">${fmt(fee)}</td>
+      <td class="computed" style="white-space:nowrap">${fmt(final)}</td>
+      <td class="td-center" style="white-space:nowrap"><button class="btn-secondary" style="font-size:11px;padding:3px 9px" data-copy-person="${esc(asgn)}">Copy</button></td>
     </tr>`;
   });
 
-  const shareTotPct = grandTotal > 1e-9 ? '100.00%' : '0.00%';
+  const shareTotPct = grandTotal > 1e-9 ? '100.0%' : '0.0%';
   html += `<tr class="totals-row">
     <td class="td-left">TOTAL</td>
-    <td class="computed">${fmt(sumSub)}</td>
-    <td class="computed">${shareTotPct}</td>
-    <td class="computed">${fmt(sumTip)}</td>
-    <td class="computed">${fmt(sumFee)}</td>
-    <td class="computed">${fmt(sumFinal)}</td>
-    <td class="td-center"><button class="btn-secondary" style="font-size:11px;padding:3px 9px" id="copy-all-btn">Copy All</button></td>
+    <td class="computed" style="white-space:nowrap">${fmt(sumSub)}</td>
+    <td class="computed" style="white-space:nowrap">${shareTotPct}</td>
+    <td class="computed" style="white-space:nowrap">${fmt(sumTip)}</td>
+    <td class="computed" style="white-space:nowrap">${fmt(sumFee)}</td>
+    <td class="computed" style="white-space:nowrap">${fmt(sumFinal)}</td>
+    <td class="td-center" style="white-space:nowrap"><button class="btn-secondary" style="font-size:11px;padding:3px 9px" id="copy-all-btn">Copy</button></td>
   </tr>`;
 
   document.getElementById('sum-tbody').innerHTML = html;
@@ -1528,7 +1533,7 @@ document.getElementById('add-row-btn').addEventListener('click', () => {
 });
 
 wireTwoClickBtn('clear-btn', 'Clear All', 'Tap again to clear', () => {
-  rows = [newRow()];
+  rows = [];
   setRoster(people,     DEFAULT_PEOPLE);
   setRoster(categories, DEFAULT_CATEGORIES);
   setRoster(payees,     DEFAULT_PAYEES);
@@ -1964,8 +1969,8 @@ wireTwoClickBtn('clear-storage-btn', 'Clear Local Storage', 'Click again to conf
   try { localStorage.removeItem(LS_KEY); } catch (_) {}
   try { localStorage.removeItem('txn-splitter-ynab-v1'); } catch (_) {}
   try { localStorage.removeItem('txn-splitter-sw-v1');   } catch (_) {}
-  rows = [newRow()];
-  document.getElementById('default-tax-input').value = '';
+  rows = [];
+  document.getElementById('default-tax-input').value = '7';
   document.getElementById('tip-input').value = '';
   document.getElementById('fee-input').value = '';
   setRoster(people,     DEFAULT_PEOPLE);
