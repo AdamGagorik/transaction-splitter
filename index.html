@@ -282,7 +282,7 @@ select:focus {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   margin-bottom: 8px;
-  overflow: hidden;
+  position: relative;
 }
 .row-card-hdr {
   display: flex;
@@ -1067,13 +1067,18 @@ function attachCombo(input, options) {
   const wrap = input.closest('.combo-wrap');
   const list = wrap && wrap.querySelector('.combo-list');
   if (!list) return;
+  const card = input.closest('.row-card');
+
+  function openList() { if (card) card.style.zIndex = '10'; }
+  function closeList() { list.style.display = 'none'; if (card) card.style.zIndex = ''; }
 
   function render(filter) {
     const f = (filter || '').toLowerCase().trim();
     const hits = f ? options.filter(o => o.toLowerCase().includes(f)) : options;
-    if (!hits.length) { list.style.display = 'none'; return; }
+    if (!hits.length) { closeList(); return; }
     list.innerHTML = hits.map(o => `<li data-val="${esc(o)}">${esc(o)}</li>`).join('');
     list.style.display = 'block';
+    openList();
   }
 
   function highlight(dir) {
@@ -1088,15 +1093,15 @@ function attachCombo(input, options) {
 
   function pick(val) {
     input.value = val;
-    list.style.display = 'none';
+    closeList();
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }
 
   input.addEventListener('focus', () => render(''));
   input.addEventListener('input', () => render(input.value));
-  input.addEventListener('blur',  () => setTimeout(() => { list.style.display = 'none'; }, 200));
+  input.addEventListener('blur',  () => setTimeout(() => { closeList(); }, 200));
   input.addEventListener('keydown', e => {
-    if (e.key === 'Escape')    { list.style.display = 'none'; }
+    if (e.key === 'Escape')    { closeList(); }
     if (e.key === 'ArrowDown') { if (list.style.display === 'none') render(''); highlight('down'); e.preventDefault(); }
     if (e.key === 'ArrowUp')   { highlight('up'); e.preventDefault(); }
     if (e.key === 'Enter') {
