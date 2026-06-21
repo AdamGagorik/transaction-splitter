@@ -2296,6 +2296,11 @@ const LS_SW  = 'txn-splitter-sw-v1';
 
 const { computeRow: _computeRow, esc: escHtml, LS_KEY: _LS_KEY } = window._txnSplit;
 
+function getSwApiKey() {
+  // Strip control characters that would make the Authorization header invalid.
+  return document.getElementById('sw-api-key').value.replace(/[\x00-\x1F\x7F]/g, '').trim();
+}
+
 // Splitwise user ID per assignee name, persisted across sessions.
 let swUserMap = {}; // { [assignee]: { userId: '' } }
 let swPayer   = ''; // name of the paying assignee
@@ -2521,7 +2526,7 @@ function renderSwPane() {
 
   emptyEl.style.display = 'none';
   const { persons, cost, payer } = expData;
-  const apiKey = document.getElementById('sw-api-key').value.trim();
+  const apiKey = getSwApiKey();
 
   renderSwPayerDropdown(persons.map(p => p.name));
 
@@ -2619,7 +2624,7 @@ function renderSwPane() {
 /* ── Submit to Splitwise API ── */
 
 async function submitToSplitwise() {
-  const apiKey   = document.getElementById('sw-api-key').value.trim();
+  const apiKey   = getSwApiKey();
   const statusEl = document.getElementById('sw-status');
   const submitBtn = document.getElementById('sw-submit-btn');
 
@@ -2669,7 +2674,7 @@ async function submitToSplitwise() {
 /* ── Fetch Splitwise friends ── */
 
 async function fetchSwFriends() {
-  const apiKey   = document.getElementById('sw-api-key').value.trim();
+  const apiKey   = getSwApiKey();
   const statusEl = document.getElementById('sw-friends-status');
   const btn      = document.getElementById('sw-fetch-friends-btn');
   if (!apiKey) {
