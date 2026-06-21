@@ -2519,7 +2519,7 @@ function renderSwUserMap() {
   });
 
   html += '</tbody></table>';
-  container.innerHTML = html;
+  container.innerHTML = `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">${html}</div>`;
 
   container.querySelectorAll('.sw-uid-input').forEach(inp => {
     inp.addEventListener('input', () => {
@@ -2645,7 +2645,7 @@ function renderSwPane() {
     </div>
     <div class="ynab-pane-body">
       <div class="ynab-preview-label">Breakdown</div>
-      ${breakdownHtml}
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch">${breakdownHtml}</div>
       <div class="ynab-preview-label">JSON Payload</div>
       <pre class="ynab-code">${escHtml(jsonStr)}</pre>
       <div class="ynab-preview-label">curl Command</div>
