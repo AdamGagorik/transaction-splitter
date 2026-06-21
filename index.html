@@ -608,7 +608,7 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
 <body>
 
 
-<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-20b</span></h1>
+<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-21</span></h1>
 
 <div class="main-tabs no-print">
   <button class="main-tab-btn active" data-main-tab="split">Main</button>
@@ -750,6 +750,7 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
     <div style="display:flex;gap:8px">
       <button class="btn-secondary" id="payee-defaults-btn">Load Defaults</button>
       <button class="btn-secondary" id="payee-fetch-btn">Fetch from YNAB</button>
+      <button class="btn-secondary" id="payee-fetch-sw-btn">Fetch from Splitwise</button>
       <button class="btn-secondary" id="payee-clear-btn">Clear</button>
     </div>
   </div>
@@ -2197,7 +2198,14 @@ fetch('config.json')
   .finally(() => { bootstrap(); });
 
 // Shared utilities for the YNAB script block (separate IIFE can't close over these).
-window._txnSplit = { computeRow, esc, LS_KEY };
+function addToPayees(names) {
+  names.forEach(n => { if (!payees.includes(n)) payees.push(n); });
+  payees.sort((a, b) => a.localeCompare(b));
+  renderPayees();
+  buildMainTable();
+  persist();
+}
+window._txnSplit = { computeRow, esc, LS_KEY, addToPayees };
 
 })();
 </script>
@@ -3245,6 +3253,51 @@ if (_swClearFriendsBtn) _swClearFriendsBtn.addEventListener('click', () => {
   if (statusEl) statusEl.textContent = '';
   renderSwUserMap();
 });
+
+/* ── Fetch payees from Splitwise (Setup tab) ── */
+const _swFetchPayeesBtn = document.getElementById('payee-fetch-sw-btn');
+if (_swFetchPayeesBtn) {
+  _swFetchPayeesBtn.addEventListener('click', async function () {
+    const apiKey = getSwApiKey();
+    const base   = getSwBase();
+    const orig   = _swFetchPayeesBtn.textContent;
+    if (!apiKey) { alert('Enter your Splitwise API Key on the Setup tab first.'); return; }
+    if (base === SW_API) { alert('Set a Proxy URL on the Setup tab first.'); return; }
+    _swFetchPayeesBtn.disabled = true;
+    _swFetchPayeesBtn.textContent = 'Fetching…';
+    try {
+      const headers = { 'Authorization': 'Bearer ' + apiKey };
+      const [friendsRes, selfRes] = await Promise.all([
+        fetch(base + '/get_friends',      { headers }),
+        fetch(base + '/get_current_user', { headers }),
+      ]);
+      if (!friendsRes.ok) throw new Error((await friendsRes.json()).error || String(friendsRes.status));
+      if (!selfRes.ok)    throw new Error((await selfRes.json()).error    || String(selfRes.status));
+      const friends = (await friendsRes.json()).friends || [];
+      const self    = (await selfRes.json()).user;
+      const all     = self ? [self, ...friends] : friends;
+      // Detect ambiguous first names
+      const firstNameCount = {};
+      all.forEach(f => {
+        const fn = (f.first_name || '').trim();
+        if (fn) firstNameCount[fn] = (firstNameCount[fn] || 0) + 1;
+      });
+      const names = all.map(f => {
+        const fn = (f.first_name || '').trim();
+        const ln = (f.last_name  || '').trim();
+        if (!fn) return ln || null;
+        return firstNameCount[fn] === 1 ? fn : [fn, ln].filter(Boolean).join(' ');
+      }).filter(Boolean);
+      window._txnSplit.addToPayees(names);
+      _swFetchPayeesBtn.textContent = 'Added ' + names.length;
+      setTimeout(() => { _swFetchPayeesBtn.textContent = orig; _swFetchPayeesBtn.disabled = false; }, 2500);
+    } catch (err) {
+      _swFetchPayeesBtn.textContent = orig;
+      _swFetchPayeesBtn.disabled = false;
+      alert('Splitwise error: ' + err.message);
+    }
+  });
+}
 
 })();
 </script>
