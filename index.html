@@ -150,6 +150,18 @@ select:focus {
 }
 .combo-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
 .combo-wrap.combo-full .combo-input { width: 100%; box-sizing: border-box; }
+.memo-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #f8fafc;
+}
+.memo-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
 .combo-list {
   display: none;
   position: absolute;
@@ -901,7 +913,7 @@ let payees     = [];
 /* ── Pure helpers ──────────────────────────────────────────────────── */
 
 function newRow() {
-  return { amount: '', taxed: false, rateOverride: '', payee: DEFAULT_PAYEES[0] || '', category: DEFAULT_CATEGORIES[0] || '', splits: [{ assignee: DEFAULT_PEOPLE[0] || '', fraction: '1' }] };
+  return { amount: '', taxed: false, rateOverride: '', payee: DEFAULT_PAYEES[0] || '', category: DEFAULT_CATEGORIES[0] || '', memo: '', splits: [{ assignee: DEFAULT_PEOPLE[0] || '', fraction: '1' }] };
 }
 
 function rowSplits(r) {
@@ -1108,10 +1120,17 @@ function attachAllCombos(container) {
   container.querySelectorAll('[data-combo="categories"]').forEach(el => attachCombo(el, categories));
 }
 
+function shortCategory(cat) {
+  if (!cat) return '';
+  const parts = cat.split(':');
+  return parts[parts.length - 1].trim();
+}
+
 function rowSummary(r, c) {
-  const asgns = rowSplits(r).map(s => s.assignee).filter(Boolean);
-  const who   = [r.payee, ...asgns].filter(Boolean).join(' · ');
-  return `${who} — ${fmt(c.total)}`;
+  const prefix = (r.memo || '').trim() || shortCategory(r.category);
+  const asgns  = rowSplits(r).map(s => s.assignee).filter(Boolean);
+  const who    = [prefix, ...asgns].filter(Boolean).join(' · ');
+  return who ? `${who} — ${fmt(c.total)}` : fmt(c.total);
 }
 
 function buildMainTable() {
@@ -1161,6 +1180,12 @@ function buildMainTable() {
         <button class="remove-btn" data-remove="${i}" title="Remove row">✕</button>
       </div>
       <div class="row-card-body${collapsed}">
+        <div class="row-line">
+          <div class="row-field" style="flex:1;min-width:0">
+            <span class="row-lbl">Memo</span>
+            <input type="text" class="memo-input" data-row="${i}" data-col="memo" value="${esc(r.memo || '')}" placeholder="Optional description" autocomplete="off">
+          </div>
+        </div>
         <div class="row-line">
           <div class="row-field">
             <span class="row-lbl">Amount</span>
@@ -1488,6 +1513,7 @@ function restore() {
         rateOverride,
         payee:      String(r.payee ?? DEFAULT_PAYEES[0] ?? ''),
         category:   String(r.category ?? ''),
+        memo:       String(r.memo ?? ''),
         splits,
         _collapsed: !!r._collapsed
       };
@@ -1552,6 +1578,7 @@ function applyCell(el) {
     case 'rateOverride': r.rateOverride = el.value;   break;
     case 'payee':        r.payee        = el.value;   break;
     case 'category':     r.category     = el.value;   break;
+    case 'memo':         r.memo         = el.value;   break;
     case 'taxed':        r.taxed        = el.checked; break;
     default: return false;
   }
@@ -1564,6 +1591,9 @@ mainCards.addEventListener('input', e => {
   if (col === 'amount') applyMoneyFormat(el);
   if (col === 'amount' || col === 'rateOverride') {
     if (applyCell(el)) partialUpdate();
+  }
+  if (col === 'memo') {
+    if (applyCell(el)) { refreshMainComputeds(); persist(); }
   }
 });
 
@@ -2254,12 +2284,14 @@ function buildMainYnabTransaction() {
     if (comp.total < 1e-9) return;
     const cat   = (r.category || '').trim() || '(uncategorized)';
     const payee = (r.payee    || '').trim() || 'Payee';
+    const memo  = (r.memo     || '').trim();
     if (idx === 0 || topPayee === 'Payee') topPayee = payee;
     if (!catSet.has(cat)) {
       catSet.add(cat);
       catOrder.push(cat);
-      catData[cat] = { eff: 0, tax: 0, payee };
+      catData[cat] = { eff: 0, tax: 0, payee, memo: '' };
     }
+    if (memo) catData[cat].memo = catData[cat].memo ? catData[cat].memo + '; ' + memo : memo;
     catData[cat].eff += comp.eff;
     catData[cat].tax += comp.tax;
     grandTotal += comp.total;
@@ -2268,10 +2300,12 @@ function buildMainYnabTransaction() {
   const total = grandTotal + tipVal + feeVal;
   if (total < 1e-9) return null;
 
+  const allMemos = [...new Set(rows.map(r => (r.memo || '').trim()).filter(Boolean))].join('; ');
+
   const subtransactions = [];
   catOrder.forEach(cat => {
     const d = catData[cat];
-    if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(-d.eff), payee_name: d.payee, category_name: cat });
+    if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(-d.eff), payee_name: d.payee, category_name: cat, ...(d.memo ? { memo: d.memo } : {}) });
     if (d.tax > 1e-9) subtransactions.push({ amount: toMilliunits(-d.tax), payee_name: 'Sales Tax', category_name: cat });
   });
   const primaryCat = catOrder[0] || undefined;
@@ -2287,6 +2321,7 @@ function buildMainYnabTransaction() {
         date:            getTxnDate(),
         amount:          toMilliunits(-total), // always outflow
         payee_name:      topPayee,
+        ...(allMemos ? { memo: allMemos } : {}),
         flag_color:      'blue',
         approved:        false,
         subtransactions
@@ -2308,6 +2343,7 @@ function buildPersonYnabTransactions() {
     const comp  = _computeRow(r);
     const cat   = (r.category || '').trim() || '(uncategorized)';
     const payee = (r.payee    || '').trim() || 'Payee';
+    const memo  = (r.memo     || '').trim();
     const splits = Array.isArray(r.splits) && r.splits.length > 0
       ? r.splits : [{ assignee: r.assignee || '', fraction: r.fraction || '1' }];
     splits.forEach((s, j) => {
@@ -2315,7 +2351,8 @@ function buildPersonYnabTransactions() {
       if (!sc || sc.total < 1e-9) return;
       const person = (s.assignee || '').trim() || '(unassigned)';
       if (!personSet.has(person)) { personSet.add(person); personOrder.push(person); personData[person] = {}; }
-      if (!personData[person][cat]) personData[person][cat] = { eff: 0, tax: 0, payee };
+      if (!personData[person][cat]) personData[person][cat] = { eff: 0, tax: 0, payee, memo: '' };
+      if (memo) personData[person][cat].memo = personData[person][cat].memo ? personData[person][cat].memo + '; ' + memo : memo;
       personData[person][cat].eff += sc.eff;
       personData[person][cat].tax += sc.tax;
     });
@@ -2346,7 +2383,7 @@ function buildPersonYnabTransactions() {
     const subtransactions = [];
     cats.forEach(cat => {
       const d = personData[person][cat];
-      if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.eff), payee_name: d.payee, category_name: cat });
+      if (d.eff > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.eff), payee_name: d.payee, category_name: cat, ...(d.memo ? { memo: d.memo } : {}) });
       if (d.tax > 1e-9) subtransactions.push({ amount: toMilliunits(sign * d.tax), payee_name: 'Sales Tax', category_name: cat });
     });
     const primaryCat = cats[0] || undefined;
