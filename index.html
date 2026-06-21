@@ -315,10 +315,10 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
   color: #475569;
   white-space: nowrap;
 }
-.ynab-settings-grid input[type="text"],
-.ynab-settings-grid input[type="password"],
-.ynab-settings-grid input[type="date"] {
+.ynab-settings-grid input,
+.ynab-settings-grid select {
   width: 100%;
+  max-width: 100%;
   min-width: 0;
   box-sizing: border-box;
   border: 1px solid #e2e8f0;
@@ -329,10 +329,19 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
   color: #1e293b;
   background: #fff;
 }
-.ynab-settings-grid input:focus {
+.ynab-settings-grid input:focus,
+.ynab-settings-grid select:focus {
   outline: none;
   border-color: #6366f1;
   box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+}
+@media (max-width: 480px) {
+  .ynab-settings-grid {
+    grid-template-columns: 1fr;
+  }
+  .ynab-settings-grid label {
+    margin-bottom: -4px;
+  }
 }
 .ynab-pane {
   border: 1px solid #eef2f7;
