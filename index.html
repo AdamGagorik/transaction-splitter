@@ -131,7 +131,8 @@ select:focus {
 
 .num-input  { text-align: right; width: 82px; }
 .wide-input { width: 118px; }
-.frac-sel   { width: 66px; }
+.payee-sel, .asgn-sel, .cat-sel { text-align-last: right; direction: rtl; }
+.frac-sel   { width: 52px; text-align-last: right; direction: rtl; }
 
 .remove-btn {
   background: #fef2f2;
@@ -219,7 +220,7 @@ select:focus {
   padding: 6px 0;
 }
 
-.num-input.rate-input { width: 56px; }
+.num-input.rate-input { width: 48px; }
 .num-input:disabled {
   background: #f1f5f9;
   color: #cbd5e1;
@@ -1880,7 +1881,7 @@ function bootstrap() {
     if (el && !el.value && val) el.value = val;
   });
   const restored = restore();
-  if (!restored || rows.length === 0) rows = [newRow()];
+  if (!restored) rows = [];
   renderPeople();
   renderCategories();
   renderPayees();
