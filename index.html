@@ -528,7 +528,7 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   <button class="main-tab-btn active" data-main-tab="split">Main</button>
   <button class="main-tab-btn" data-main-tab="ynab">YNAB</button>
   <button class="main-tab-btn" data-main-tab="splitwise">Splitwise</button>
-  <button class="main-tab-btn" data-main-tab="config">Config</button>
+  <button class="main-tab-btn" data-main-tab="config">Setup</button>
   <button class="main-tab-btn" data-main-tab="readme">README</button>
 </div>
 
@@ -691,6 +691,18 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   </div>
 </div>
 
+<!-- ── Splitwise credentials ── -->
+<div class="card">
+  <h2>Splitwise</h2>
+  <div class="ynab-settings-grid">
+    <label for="sw-api-key">API Key</label>
+    <input type="password" id="sw-api-key" name="api" placeholder="Splitwise API token…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+    <label for="sw-proxy-url">Proxy URL</label>
+    <input type="url" id="sw-proxy-url" placeholder="https://splitwise-proxy.<you>.workers.dev" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </div>
+</div>
+
 <!-- ── Storage ── -->
 <div class="card">
   <h2>Storage</h2>
@@ -748,11 +760,8 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 
   <!-- Settings -->
   <div class="ynab-settings-grid">
-    <label for="sw-api-key">API Key</label>
-    <input type="password" id="sw-api-key" name="api" placeholder="Splitwise API token…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-
     <label for="sw-description">Description</label>
-    <input type="text" id="sw-description" placeholder="e.g. Dinner">
+    <input type="text" id="sw-description" placeholder="e.g. Dinner" required>
 
     <label for="sw-date">Date</label>
     <input type="date" id="sw-date">
@@ -762,9 +771,6 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 
     <label for="sw-group-id">Group ID</label>
     <input type="text" id="sw-group-id" placeholder="Optional — numeric group ID" inputmode="numeric">
-
-    <label for="sw-proxy-url">Proxy URL</label>
-    <input type="url" id="sw-proxy-url" placeholder="https://splitwise-proxy.<you>.workers.dev" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:320px">
 
     <label for="sw-payer">Payer</label>
     <select id="sw-payer" style="width:200px">
@@ -2739,7 +2745,10 @@ async function submitToSplitwise() {
     statusEl.textContent = msg;
   }
 
-  if (!apiKey) { setStatus('err', 'Please enter your Splitwise API Key.'); return; }
+  if (!apiKey) { setStatus('err', 'Please enter your Splitwise API Key on the Setup tab.'); return; }
+
+  const desc = document.getElementById('sw-description').value.trim();
+  if (!desc) { setStatus('err', 'Description is required.'); return; }
 
   const expData = buildSwExpense();
   if (!expData) { setStatus('err', 'No expense data to submit.'); return; }
