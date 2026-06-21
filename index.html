@@ -131,8 +131,51 @@ select:focus {
 
 .num-input  { text-align: right; width: 82px; }
 .wide-input { width: 118px; }
-.payee-sel, .asgn-sel, .cat-sel { text-align-last: right; direction: rtl; }
 .frac-sel   { width: 52px; text-align-last: right; direction: rtl; }
+
+/* ── Filterable combo-box ── */
+.combo-wrap { position: relative; display: inline-block; }
+.combo-wrap.combo-full { display: block; width: 100%; }
+.combo-input {
+  width: 120px;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 5px 22px 5px 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1e293b;
+  background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2394a3b8'/%3E%3C/svg%3E") no-repeat right 7px center;
+  background-size: 10px 6px;
+  cursor: pointer;
+}
+.combo-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
+.combo-wrap.combo-full .combo-input { width: 100%; box-sizing: border-box; }
+.combo-list {
+  display: none;
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 600;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  max-height: 200px;
+  overflow-y: auto;
+  list-style: none;
+  margin: 0;
+  padding: 3px 0;
+  min-width: 100%;
+  box-shadow: 0 6px 16px rgba(0,0,0,.1);
+  -webkit-overflow-scrolling: touch;
+}
+.combo-list li {
+  padding: 8px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: #1e293b;
+}
+.combo-list li:hover, .combo-list li.combo-hi { background: #f1f5f9; }
 
 .remove-btn {
   background: #fef2f2;
@@ -512,7 +555,6 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
 .people-add { display: flex; gap: 8px; align-items: center; }
 .people-add input[type="text"] { flex: 1; max-width: 240px; width: auto; }
 
-select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 
 @media print {
   @page { size: landscape; margin: 10mm; }
@@ -901,27 +943,7 @@ function applyMoneyFormat(el) {
   if (f !== el.value) { el.value = f; setCaretEnd(el); }
 }
 
-function payeeOptions(selected) {
-  return rosterOptions(payees, selected, '(no payee)');
-}
 
-function assigneeOptions(selected) {
-  return rosterOptions(people, selected, '(unassigned)');
-}
-
-function categoryOptions(selected) {
-  return rosterOptions(categories, selected, '(uncategorized)');
-}
-
-function rosterOptions(roster, selected, blankLabel) {
-  const items = roster.slice();
-  if (selected && !items.includes(selected)) items.unshift(selected);
-  let opts = `<option value=""${!selected ? ' selected' : ''}>${blankLabel}</option>`;
-  items.forEach(n => {
-    opts += `<option value="${esc(n)}"${n === selected ? ' selected' : ''}>${esc(n)}</option>`;
-  });
-  return opts;
-}
 
 /* ── Penny reconciliation ──────────────────────────────────────────── */
 
@@ -1027,6 +1049,65 @@ function partialUpdate() {
 
 /* ── Main table ────────────────────────────────────────────────────── */
 
+/* ── Combo-box ─────────────────────────────────────────────────────── */
+
+function attachCombo(input, options) {
+  const wrap = input.closest('.combo-wrap');
+  const list = wrap && wrap.querySelector('.combo-list');
+  if (!list) return;
+
+  function render(filter) {
+    const f = (filter || '').toLowerCase().trim();
+    const hits = f ? options.filter(o => o.toLowerCase().includes(f)) : options;
+    if (!hits.length) { list.style.display = 'none'; return; }
+    list.innerHTML = hits.map(o => `<li data-val="${esc(o)}">${esc(o)}</li>`).join('');
+    list.style.display = '';
+  }
+
+  function highlight(dir) {
+    const items = [...list.querySelectorAll('li')];
+    if (!items.length) return;
+    let idx = items.findIndex(li => li.classList.contains('combo-hi'));
+    if (idx >= 0) items[idx].classList.remove('combo-hi');
+    idx = Math.max(0, Math.min(items.length - 1, dir === 'down' ? idx + 1 : idx - 1));
+    items[idx].classList.add('combo-hi');
+    items[idx].scrollIntoView({ block: 'nearest' });
+  }
+
+  function pick(val) {
+    input.value = val;
+    list.style.display = 'none';
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }
+
+  input.addEventListener('focus', () => render(''));
+  input.addEventListener('input', () => render(input.value));
+  input.addEventListener('blur',  () => setTimeout(() => { list.style.display = 'none'; }, 200));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Escape')    { list.style.display = 'none'; }
+    if (e.key === 'ArrowDown') { if (list.style.display === 'none') render(''); highlight('down'); e.preventDefault(); }
+    if (e.key === 'ArrowUp')   { highlight('up'); e.preventDefault(); }
+    if (e.key === 'Enter') {
+      const hi = list.querySelector('.combo-hi') || list.querySelector('li');
+      if (hi && list.style.display !== 'none') { pick(hi.dataset.val); e.preventDefault(); }
+    }
+  });
+  list.addEventListener('mousedown', e => {
+    const li = e.target.closest('li');
+    if (li) { e.preventDefault(); pick(li.dataset.val); }
+  });
+  list.addEventListener('touchstart', e => {
+    const li = e.target.closest('li');
+    if (li) { e.preventDefault(); pick(li.dataset.val); }
+  }, { passive: false });
+}
+
+function attachAllCombos(container) {
+  container.querySelectorAll('[data-combo="people"]').forEach(el => attachCombo(el, people));
+  container.querySelectorAll('[data-combo="payees"]').forEach(el => attachCombo(el, payees));
+  container.querySelectorAll('[data-combo="categories"]').forEach(el => attachCombo(el, categories));
+}
+
 function rowSummary(r, c) {
   const asgns = rowSplits(r).map(s => s.assignee).filter(Boolean);
   const who   = [r.payee, ...asgns].filter(Boolean).join(' · ');
@@ -1039,7 +1120,7 @@ function buildMainTable() {
   let sumTot = 0;
   comp.forEach(c => { sumTot += c.total; });
 
-  container.innerHTML = rows.map((r, i) => {
+  const html = rows.map((r, i) => {
     const c         = comp[i];
     const splits    = rowSplits(r);
     const collapsed = r._collapsed ? ' collapsed' : '';
@@ -1056,7 +1137,10 @@ function buildMainTable() {
       return `<div class="split-row">
         <div class="row-field">
           <span class="row-lbl">Person</span>
-          <select class="asgn-sel" data-row="${i}" data-split="${j}" data-col="assignee">${assigneeOptions(s.assignee)}</select>
+          <div class="combo-wrap">
+            <input type="text" class="combo-input" data-row="${i}" data-split="${j}" data-col="assignee" data-combo="people" value="${esc(s.assignee)}" autocomplete="off" placeholder="Person">
+            <ul class="combo-list"></ul>
+          </div>
         </div>
         <div class="row-field">
           <span class="row-lbl">Fraction</span>
@@ -1106,11 +1190,17 @@ function buildMainTable() {
         <div class="row-line">
           <div class="row-field">
             <span class="row-lbl">Payee</span>
-            <select class="payee-sel" data-row="${i}" data-col="payee">${payeeOptions(r.payee)}</select>
+            <div class="combo-wrap">
+              <input type="text" class="combo-input" data-row="${i}" data-col="payee" data-combo="payees" value="${esc(r.payee)}" autocomplete="off" placeholder="Payee">
+              <ul class="combo-list"></ul>
+            </div>
           </div>
           <div class="row-field" style="flex:1;min-width:0">
             <span class="row-lbl">Category</span>
-            <select class="cat-sel" data-row="${i}" data-col="category" style="width:100%">${categoryOptions(r.category)}</select>
+            <div class="combo-wrap combo-full">
+              <input type="text" class="combo-input" data-row="${i}" data-col="category" data-combo="categories" value="${esc(r.category)}" autocomplete="off" placeholder="Category">
+              <ul class="combo-list"></ul>
+            </div>
           </div>
         </div>
         <div class="row-line" style="justify-content:flex-end">
@@ -1122,6 +1212,9 @@ function buildMainTable() {
       </div>
     </div>`;
   }).join('');
+
+  container.innerHTML = html;
+  attachAllCombos(container);
 
   const totLine = document.getElementById('cards-total-line');
   const totEl   = document.getElementById('tot-tot');
