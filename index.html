@@ -692,6 +692,15 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   </div>
 </div>
 
+<!-- ── YNAB credentials ── -->
+<div class="card">
+  <h2>YNAB</h2>
+  <div class="ynab-settings-grid">
+    <label for="ynab-api-key">API Key</label>
+    <input type="password" id="ynab-api-key" name="api" placeholder="Personal access token…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+  </div>
+</div>
+
 <!-- ── Splitwise credentials ── -->
 <div class="card">
   <h2>Splitwise</h2>
@@ -727,9 +736,6 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 
   <!-- Settings -->
   <div class="ynab-settings-grid">
-    <label for="ynab-api-key">API Key</label>
-    <input type="password" id="ynab-api-key" name="api" placeholder="Personal access token…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-
     <label for="ynab-date">Date</label>
     <input type="date" id="ynab-date">
 
@@ -1749,7 +1755,7 @@ wireTwoClickBtn('payee-clear-btn',    'Clear', 'Confirm clear', () => { payees.l
 async function ynabLookupPlan() {
   const apiKey     = document.getElementById('ynab-api-key').value.trim();
   const budgetName = document.getElementById('ynab-budget-name').value.trim();
-  if (!apiKey)     throw new Error('Enter your YNAB API Key on the YNAB tab first.');
+  if (!apiKey)     throw new Error('Enter your YNAB API Key on the Setup tab first.');
   if (!budgetName) throw new Error('Enter your Budget Name on the YNAB tab first.');
   const headers  = { 'Authorization': 'Bearer ' + apiKey };
   const res      = await fetch('https://api.ynab.com/v1/plans', { headers });
