@@ -579,6 +579,7 @@ function buildSummaryTable() {
   if (rows.length === 0) {
     emptyEl.style.display = '';
     tableEl.style.display = 'none';
+    document.getElementById('sum-tbody').innerHTML = '';
     return;
   }
 
