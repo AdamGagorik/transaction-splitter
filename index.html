@@ -1061,7 +1061,7 @@ function attachCombo(input, options) {
     const hits = f ? options.filter(o => o.toLowerCase().includes(f)) : options;
     if (!hits.length) { list.style.display = 'none'; return; }
     list.innerHTML = hits.map(o => `<li data-val="${esc(o)}">${esc(o)}</li>`).join('');
-    list.style.display = '';
+    list.style.display = 'block';
   }
 
   function highlight(dir) {
