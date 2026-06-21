@@ -2706,14 +2706,19 @@ async function fetchSwFriends() {
   if (btn) btn.disabled = true;
   if (statusEl) statusEl.textContent = 'Fetching…';
   try {
-    const res  = await fetch(base + '/get_friends', {
-      headers: { 'Authorization': 'Bearer ' + apiKey }
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || res.status);
-    swFriends = (data.friends || []).sort((a, b) =>
+    const headers = { 'Authorization': 'Bearer ' + apiKey };
+    const [friendsRes, selfRes] = await Promise.all([
+      fetch(base + '/get_friends',      { headers }),
+      fetch(base + '/get_current_user', { headers }),
+    ]);
+    if (!friendsRes.ok) throw new Error((await friendsRes.json()).error || friendsRes.status);
+    if (!selfRes.ok)    throw new Error((await selfRes.json()).error    || selfRes.status);
+    const friends = (await friendsRes.json()).friends || [];
+    const self    = (await selfRes.json()).user;
+    const sorted  = friends.sort((a, b) =>
       (a.first_name + ' ' + (a.last_name || '')).localeCompare(b.first_name + ' ' + (b.last_name || '')));
-    if (statusEl) statusEl.textContent = swFriends.length + ' friend' + (swFriends.length === 1 ? '' : 's') + ' loaded';
+    swFriends = self ? [self, ...sorted] : sorted;
+    if (statusEl) statusEl.textContent = swFriends.length + ' loaded';
     renderSwUserMap();
   } catch (err) {
     if (statusEl) statusEl.textContent = 'Error: ' + err.message;
