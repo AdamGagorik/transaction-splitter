@@ -10,7 +10,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Splitter">
 <link rel="apple-touch-icon" href="icon-192.png">
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="marked.min.js"></script>
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -446,10 +446,11 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   body { background: #fff; padding: 0; }
   .card { box-shadow: none; border: 1px solid #e2e8f0; }
   .no-print, .btn-row, .tabs, .remove-btn { display: none !important; }
-  #main-tab-split  { display: block !important; }
-  #main-tab-config { display: none  !important; }
-  #main-tab-ynab   { display: none  !important; }
-  #main-tab-readme { display: none  !important; }
+  #main-tab-split     { display: block !important; }
+  #main-tab-config    { display: none  !important; }
+  #main-tab-ynab      { display: none  !important; }
+  #main-tab-splitwise { display: none  !important; }
+  #main-tab-readme    { display: none  !important; }
   .main-tabs       { display: none  !important; }
   #cat-view-grouped, #cat-view-matrix { display: block !important; }
   .overflow-x { overflow: visible !important; }
@@ -484,11 +485,12 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 <body>
 
 
-<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-20a</span></h1>
+<h1>Transaction Splitter <span style="font-size:12px;font-weight:500;color:#94a3b8">build 2026-06-20b</span></h1>
 
 <div class="main-tabs no-print">
   <button class="main-tab-btn active" data-main-tab="split">Split</button>
   <button class="main-tab-btn" data-main-tab="ynab">YNAB</button>
+  <button class="main-tab-btn" data-main-tab="splitwise">Splitwise</button>
   <button class="main-tab-btn" data-main-tab="config">Config</button>
   <button class="main-tab-btn" data-main-tab="readme">README</button>
 </div>
@@ -700,6 +702,48 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
 </div>
 
 </div><!-- #main-tab-ynab -->
+
+<div id="main-tab-splitwise" style="display:none">
+
+<!-- ── Splitwise ── -->
+<div class="card no-print">
+  <h2>Splitwise</h2>
+
+  <!-- Settings -->
+  <div class="ynab-settings-grid">
+    <label for="sw-api-key">API Key</label>
+    <input type="password" id="sw-api-key" placeholder="Splitwise API token…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+
+    <label for="sw-description">Description</label>
+    <input type="text" id="sw-description" placeholder="e.g. Dinner">
+
+    <label for="sw-date">Date</label>
+    <input type="date" id="sw-date">
+
+    <label for="sw-currency">Currency</label>
+    <input type="text" id="sw-currency" placeholder="USD" value="USD" style="width:80px">
+
+    <label for="sw-group-id">Group ID</label>
+    <input type="text" id="sw-group-id" placeholder="Optional — numeric group ID" inputmode="numeric">
+
+    <label for="sw-payer">Payer</label>
+    <select id="sw-payer" style="width:200px">
+      <option value="">(add rows first)</option>
+    </select>
+  </div>
+
+  <!-- User mapping -->
+  <h2 style="margin-top:4px;margin-bottom:8px">User Mapping</h2>
+  <p style="font-size:13px;color:#64748b;margin-bottom:10px">Map each assignee to their Splitwise User ID. Find IDs via <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px">GET /api/v3.0/get_friends</code> or from Splitwise profile URLs.</p>
+  <div id="sw-user-map"></div>
+
+  <!-- Expense preview -->
+  <h2 style="margin-top:18px;margin-bottom:8px">Expense Preview</h2>
+  <p class="ynab-empty" id="sw-empty">Add rows with assignees to see the Splitwise expense preview.</p>
+  <div id="sw-panes"></div>
+</div>
+
+</div><!-- #main-tab-splitwise -->
 
 <script>
 // Register the service worker so the app installs and works offline.
@@ -1707,6 +1751,7 @@ wireYnabFetchBtn('payee-fetch-btn', 'Fetch from YNAB', async (plan, headers) => 
 wireTwoClickBtn('clear-storage-btn', 'Clear Local Storage', 'Click again to confirm', () => {
   try { localStorage.removeItem(LS_KEY); } catch (_) {}
   try { localStorage.removeItem('txn-splitter-ynab-v1'); } catch (_) {}
+  try { localStorage.removeItem('txn-splitter-sw-v1');   } catch (_) {}
   rows = [newRow()];
   document.getElementById('default-tax-input').value = '';
   document.getElementById('tip-input').value = '';
@@ -1721,6 +1766,11 @@ wireTwoClickBtn('clear-storage-btn', 'Clear Local Storage', 'Click again to conf
   document.getElementById('ynab-purchase-acct').value   = DEFAULT_YNAB.purchaseAcct;
   document.getElementById('ynab-payable-acct').value    = DEFAULT_YNAB.payableAcct;
   document.getElementById('ynab-receivable-acct').value = DEFAULT_YNAB.receivableAcct;
+  document.getElementById('sw-api-key').value           = '';
+  document.getElementById('sw-description').value       = '';
+  document.getElementById('sw-date').value              = new Date().toLocaleDateString('en-CA');
+  document.getElementById('sw-currency').value          = 'USD';
+  document.getElementById('sw-group-id').value          = '';
   fullRender();
 });
 
@@ -1738,10 +1788,11 @@ document.querySelectorAll('.main-tab-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     const tab = btn.dataset.mainTab;
     document.querySelectorAll('.main-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.getElementById('main-tab-split').style.display  = tab === 'split'  ? '' : 'none';
-    document.getElementById('main-tab-config').style.display = tab === 'config' ? '' : 'none';
-    document.getElementById('main-tab-ynab').style.display   = tab === 'ynab'   ? '' : 'none';
-    document.getElementById('main-tab-readme').style.display = tab === 'readme' ? '' : 'none';
+    document.getElementById('main-tab-split').style.display      = tab === 'split'      ? '' : 'none';
+    document.getElementById('main-tab-config').style.display     = tab === 'config'     ? '' : 'none';
+    document.getElementById('main-tab-ynab').style.display       = tab === 'ynab'       ? '' : 'none';
+    document.getElementById('main-tab-splitwise').style.display  = tab === 'splitwise'  ? '' : 'none';
+    document.getElementById('main-tab-readme').style.display     = tab === 'readme'     ? '' : 'none';
   });
 });
 
@@ -2228,6 +2279,389 @@ ynabRestore();
 const _dateEl = document.getElementById('ynab-date');
 if (!_dateEl.value) _dateEl.value = todayISO();
 renderYnabPanes();
+
+})();
+</script>
+<script>
+/* ── Splitwise Tab ────────────────────────────────────────────────────── */
+(function () {
+'use strict';
+
+const SW_API = 'https://secure.splitwise.com/api/v3.0';
+const LS_SW  = 'txn-splitter-sw-v1';
+
+const { computeRow: _computeRow, esc: escHtml, LS_KEY: _LS_KEY } = window._txnSplit;
+
+// Splitwise user ID per assignee name, persisted across sessions.
+let swUserMap = {}; // { [assignee]: { userId: '' } }
+let swPayer   = ''; // name of the paying assignee
+
+/* ── Persist / restore ── */
+
+function swSave() {
+  try {
+    localStorage.setItem(LS_SW, JSON.stringify({
+      apiKey:      document.getElementById('sw-api-key').value,
+      description: document.getElementById('sw-description').value,
+      date:        document.getElementById('sw-date').value,
+      currency:    document.getElementById('sw-currency').value,
+      groupId:     document.getElementById('sw-group-id').value,
+      swUserMap,
+      swPayer
+    }));
+  } catch (_) {}
+}
+
+function swRestore() {
+  try {
+    const raw = localStorage.getItem(LS_SW);
+    if (!raw) return;
+    const s = JSON.parse(raw);
+    if (s.apiKey)      document.getElementById('sw-api-key').value      = s.apiKey;
+    if (s.description) document.getElementById('sw-description').value  = s.description;
+    if (s.date)        document.getElementById('sw-date').value          = s.date;
+    if (s.currency)    document.getElementById('sw-currency').value      = s.currency;
+    if (s.groupId)     document.getElementById('sw-group-id').value      = s.groupId;
+    if (s.swUserMap && typeof s.swUserMap === 'object') Object.assign(swUserMap, s.swUserMap);
+    if (s.swPayer)     swPayer = s.swPayer;
+  } catch (_) {}
+}
+
+function todayISO() { return new Date().toISOString().slice(0, 10); }
+
+function getSwDate() {
+  const el = document.getElementById('sw-date');
+  return (el && el.value) ? el.value : todayISO();
+}
+
+function _getRows() {
+  return JSON.parse(localStorage.getItem(_LS_KEY) || '{"rows":[]}').rows || [];
+}
+
+/* ── Build expense data ── */
+
+function buildSwExpense() {
+  const rows   = _getRows();
+  const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
+  const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
+
+  const personOrder = [], personSet = new Set();
+  const personEff = {}, personTax = {};
+
+  rows.forEach(r => {
+    const comp = _computeRow(r);
+    if (comp.total < 1e-9) return;
+    const person = (r.assignee || '').trim() || '(unassigned)';
+    if (!personSet.has(person)) {
+      personSet.add(person); personOrder.push(person);
+      personEff[person] = 0; personTax[person] = 0;
+    }
+    personEff[person] += comp.eff;
+    personTax[person] += comp.tax;
+  });
+
+  if (personOrder.length === 0) return null;
+
+  const grandTotal = personOrder.reduce((s, p) => s + personEff[p] + personTax[p], 0);
+
+  const persons = personOrder.map(person => {
+    const items = personEff[person] + personTax[person];
+    const share = grandTotal > 1e-9 ? items / grandTotal : 0;
+    const tip   = share * tipVal;
+    const fee   = share * feeVal;
+    return {
+      name:   person,
+      userId: (swUserMap[person] && swUserMap[person].userId) ? swUserMap[person].userId.trim() : '',
+      items:  personEff[person],
+      tax:    personTax[person],
+      tip,
+      fee,
+      total:  items + tip + fee
+    };
+  });
+
+  const cost  = grandTotal + tipVal + feeVal;
+  const payer = (swPayer && personOrder.includes(swPayer)) ? swPayer : personOrder[0];
+  return { persons, cost, payer };
+}
+
+/* ── Build Splitwise API payload ── */
+
+function buildSwPayload(expData) {
+  const { persons, cost, payer } = expData;
+  const desc     = document.getElementById('sw-description').value.trim() || 'Transaction';
+  const currency = document.getElementById('sw-currency').value.trim()    || 'USD';
+  const groupId  = document.getElementById('sw-group-id').value.trim();
+
+  const users = persons.map(p => ({
+    user_id:    p.userId || null,
+    paid_share: (p.name === payer ? cost : 0).toFixed(2),
+    owed_share: p.total.toFixed(2)
+  }));
+
+  const payload = {
+    cost:          cost.toFixed(2),
+    description:   desc,
+    date:          getSwDate(),
+    currency_code: currency,
+    split_equally: false,
+    users
+  };
+  if (groupId) payload.group_id = parseInt(groupId, 10) || groupId;
+  return payload;
+}
+
+/* ── Render user-mapping table ── */
+
+function renderSwUserMap() {
+  const rows  = _getRows();
+  const names = [];
+  const seen  = new Set();
+  rows.forEach(r => {
+    const p = (r.assignee || '').trim() || '(unassigned)';
+    if (!seen.has(p)) { seen.add(p); names.push(p); }
+  });
+
+  const container = document.getElementById('sw-user-map');
+  if (!container) return;
+
+  if (names.length === 0) {
+    container.innerHTML = '<p class="ynab-empty">Add rows with assignees to set up user mapping.</p>';
+    return;
+  }
+
+  let html = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:4px">
+    <thead><tr>
+      <th style="text-align:left;padding:5px 8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b">Assignee</th>
+      <th style="text-align:left;padding:5px 8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b">Splitwise User ID</th>
+    </tr></thead><tbody>`;
+
+  names.forEach(name => {
+    const uid = (swUserMap[name] && swUserMap[name].userId) ? swUserMap[name].userId : '';
+    html += `<tr>
+      <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:500">${escHtml(name)}</td>
+      <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9">
+        <input type="text" class="sw-uid-input" data-person="${escHtml(name)}"
+          value="${escHtml(uid)}" placeholder="e.g. 12345678" inputmode="numeric"
+          style="width:160px;border:1px solid #e2e8f0;border-radius:5px;padding:4px 7px;font-size:13px">
+      </td>
+    </tr>`;
+  });
+
+  html += '</tbody></table>';
+  container.innerHTML = html;
+
+  container.querySelectorAll('.sw-uid-input').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const p = inp.dataset.person;
+      if (!swUserMap[p]) swUserMap[p] = {};
+      swUserMap[p].userId = inp.value;
+      swSave();
+      renderSwPane();
+    });
+  });
+}
+
+/* ── Update payer dropdown ── */
+
+function renderSwPayerDropdown(names) {
+  const sel = document.getElementById('sw-payer');
+  if (!sel) return;
+  const current = (swPayer && names.includes(swPayer)) ? swPayer : names[0] || '';
+  sel.innerHTML = names.length
+    ? names.map(n => `<option value="${escHtml(n)}"${n === current ? ' selected' : ''}>${escHtml(n)}</option>`).join('')
+    : '<option value="">(add rows first)</option>';
+  if (!swPayer && names.length) { swPayer = names[0]; swSave(); }
+}
+
+/* ── Render expense preview pane ── */
+
+function renderSwPane() {
+  const panesEl = document.getElementById('sw-panes');
+  const emptyEl = document.getElementById('sw-empty');
+  if (!panesEl || !emptyEl) return;
+
+  const expData = buildSwExpense();
+
+  if (!expData) {
+    emptyEl.style.display = '';
+    panesEl.innerHTML     = '';
+    renderSwPayerDropdown([]);
+    return;
+  }
+
+  emptyEl.style.display = 'none';
+  const { persons, cost, payer } = expData;
+  const apiKey = document.getElementById('sw-api-key').value.trim();
+
+  renderSwPayerDropdown(persons.map(p => p.name));
+
+  // Breakdown table
+  const tdStyle  = 'padding:4px 8px;border-bottom:1px solid #f1f5f9';
+  const numStyle = tdStyle + ';text-align:right;font-variant-numeric:tabular-nums';
+  const thStyle  = 'text-align:right;padding:5px 8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b';
+  const thLStyle = 'text-align:left;padding:5px 8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b';
+
+  let breakdownHtml = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:14px">
+    <thead><tr>
+      <th style="${thLStyle}">Person</th>
+      <th style="${thStyle}">Items</th>
+      <th style="${thStyle}">Tax</th>
+      <th style="${thStyle}">Tip</th>
+      <th style="${thStyle}">Fee</th>
+      <th style="${thStyle}">Owed</th>
+      <th style="${thStyle}">Paid</th>
+    </tr></thead><tbody>`;
+
+  persons.forEach(p => {
+    const isPayer = p.name === payer;
+    breakdownHtml += `<tr>
+      <td style="${tdStyle};font-weight:500">${escHtml(p.name)}</td>
+      <td style="${numStyle}">$${p.items.toFixed(2)}</td>
+      <td style="${numStyle}">$${p.tax.toFixed(2)}</td>
+      <td style="${numStyle}">$${p.tip.toFixed(2)}</td>
+      <td style="${numStyle}">$${p.fee.toFixed(2)}</td>
+      <td style="${numStyle};font-weight:600">$${p.total.toFixed(2)}</td>
+      <td style="${tdStyle};text-align:center">${isPayer
+        ? '<span style="background:#d1fae5;color:#065f46;padding:2px 8px;border-radius:999px;font-size:11px;font-weight:600">Payer</span>'
+        : '<span style="color:#cbd5e1;font-size:12px">—</span>'}</td>
+    </tr>`;
+  });
+
+  const totItems = persons.reduce((s, p) => s + p.items, 0);
+  const totTax   = persons.reduce((s, p) => s + p.tax,   0);
+  const totTip   = persons.reduce((s, p) => s + p.tip,   0);
+  const totFee   = persons.reduce((s, p) => s + p.fee,   0);
+  const totStyle = 'padding:5px 8px;font-weight:700;background:#f0f4ff;border-top:2px solid #c7d2fe';
+  const totNumStyle = totStyle + ';text-align:right;font-variant-numeric:tabular-nums';
+
+  breakdownHtml += `<tr>
+    <td style="${totStyle}">Total</td>
+    <td style="${totNumStyle}">$${totItems.toFixed(2)}</td>
+    <td style="${totNumStyle}">$${totTax.toFixed(2)}</td>
+    <td style="${totNumStyle}">$${totTip.toFixed(2)}</td>
+    <td style="${totNumStyle}">$${totFee.toFixed(2)}</td>
+    <td style="${totNumStyle}">$${cost.toFixed(2)}</td>
+    <td style="${totStyle}"></td>
+  </tr></tbody></table>`;
+
+  const payload    = buildSwPayload(expData);
+  const jsonStr    = JSON.stringify(payload, null, 2);
+  const curlCmd    = [
+    `curl -s -X POST \\`,
+    `  "${SW_API}/create_expense" \\`,
+    `  -H "Authorization: Bearer ${apiKey ? '****' : '<API_KEY>'}" \\`,
+    `  -H "Content-Type: application/json" \\`,
+    `  -d '${JSON.stringify(payload)}'`
+  ].join('\n');
+
+  panesEl.innerHTML = `<div class="ynab-pane" data-pane-id="sw-main">
+    <div class="ynab-pane-head">
+      <span>Splitwise Expense — $${cost.toFixed(2)}</span>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="ynab-direction main-expense">$${cost.toFixed(2)} total</span>
+        <span class="collapse-chevron">▾</span>
+      </div>
+    </div>
+    <div class="ynab-pane-body">
+      <div class="ynab-preview-label">Breakdown</div>
+      ${breakdownHtml}
+      <div class="ynab-preview-label">JSON Payload</div>
+      <pre class="ynab-code">${escHtml(jsonStr)}</pre>
+      <div class="ynab-preview-label">curl Command</div>
+      <pre class="ynab-code">${escHtml(curlCmd)}</pre>
+      <div style="margin-top:10px">
+        <button class="btn-primary" style="font-size:12px;padding:7px 14px" id="sw-submit-btn">Submit to Splitwise</button>
+      </div>
+      <div class="ynab-status" id="sw-status"></div>
+    </div>
+  </div>`;
+
+  // Collapse toggle
+  panesEl.querySelector('.ynab-pane-head').addEventListener('click', e => {
+    if (e.target.closest('button')) return;
+    panesEl.querySelector('.ynab-pane').classList.toggle('collapsed');
+  });
+
+  // Submit
+  document.getElementById('sw-submit-btn').addEventListener('click', submitToSplitwise);
+}
+
+/* ── Submit to Splitwise API ── */
+
+async function submitToSplitwise() {
+  const apiKey   = document.getElementById('sw-api-key').value.trim();
+  const statusEl = document.getElementById('sw-status');
+  const submitBtn = document.getElementById('sw-submit-btn');
+
+  function setStatus(cls, msg) {
+    statusEl.className   = 'ynab-status ' + cls;
+    statusEl.textContent = msg;
+  }
+
+  if (!apiKey) { setStatus('err', 'Please enter your Splitwise API Key.'); return; }
+
+  const expData = buildSwExpense();
+  if (!expData) { setStatus('err', 'No expense data to submit.'); return; }
+
+  const missing = expData.persons.filter(p => !p.userId);
+  if (missing.length) {
+    setStatus('err', 'Missing Splitwise User IDs for: ' + missing.map(p => p.name).join(', '));
+    return;
+  }
+
+  submitBtn.disabled    = true;
+  statusEl.style.display = 'block';
+  statusEl.className    = 'ynab-status';
+  statusEl.textContent  = 'Submitting expense…';
+
+  try {
+    const payload = buildSwPayload(expData);
+    const res  = await fetch(SW_API + '/create_expense', {
+      method:  'POST',
+      headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+      body:    JSON.stringify(payload)
+    });
+    const data = await res.json();
+    if (!res.ok || (data.errors && Object.keys(data.errors).length > 0)) {
+      const detail = data.errors ? JSON.stringify(data.errors) : (res.status + ' ' + res.statusText);
+      throw new Error('Splitwise error: ' + detail);
+    }
+    const expId = data.expenses && data.expenses[0] ? data.expenses[0].id : '?';
+    setStatus('ok', 'Expense created! ID: ' + expId);
+  } catch (err) {
+    const extra = (err.name === 'TypeError') ? ' — CORS may block direct calls; use the curl command instead.' : '';
+    setStatus('err', err.message + extra);
+  } finally {
+    submitBtn.disabled = false;
+  }
+}
+
+/* ── Wire settings inputs ── */
+
+function swRefresh() { renderSwUserMap(); renderSwPane(); swSave(); }
+
+['sw-api-key', 'sw-description', 'sw-date', 'sw-currency', 'sw-group-id'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener('input', swRefresh);
+});
+
+document.getElementById('sw-payer').addEventListener('change', e => {
+  swPayer = e.target.value;
+  swSave();
+  renderSwPane();
+});
+
+/* ── Keep panes fresh when split data changes ── */
+const _swObserver = new MutationObserver(() => { renderSwUserMap(); renderSwPane(); });
+_swObserver.observe(document.getElementById('sum-tbody'), { childList: true, subtree: true, characterData: true });
+
+/* ── Bootstrap ── */
+swRestore();
+const _swDateEl = document.getElementById('sw-date');
+if (!_swDateEl.value) _swDateEl.value = todayISO();
+renderSwUserMap();
+renderSwPane();
 
 })();
 </script>
