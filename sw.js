@@ -1,7 +1,7 @@
 /* Network-first with cache fallback: updates show when online, app still
    works offline. Bump CACHE to force-refresh cached assets. */
-const CACHE = 'txn-splitter-v3';
-const ASSETS = ['./', './index.html', './config.json', './manifest.webmanifest', './icon-192.png', './icon-512.png', './marked.min.js'];
+const CACHE = 'txn-splitter-v4';
+const ASSETS = ['./', './index.html', './style.css', './app.js', './ynab.js', './splitwise.js', './config.json', './manifest.webmanifest', './icon-192.png', './icon-512.png', './marked.min.js'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

@@ -11,10 +11,10 @@ Split shared purchases across people and categories, then push transactions dire
 
 ## Quick start
 
-1. Enter each item on the **Main** tab — amount, payee, category, who it's for, and what fraction they owe.
+1. Enter each item on the **Main** tab — amount, optional memo, payee, category, and one or more people with their share fractions. Click **+ Add Person** on a row to split an item across multiple assignees.
 2. Add a tip or fee at the bottom if needed; tax is applied per-row when checked.
 3. The **By Category** and **By Person** tables update automatically.
-4. Use **Copy Summary** to copy a formatted breakdown and paste it into an email.
+4. Use the **Copy** button next to each person in the Per-Assignee Summary to copy their individual breakdown, or **Copy** in the Total row to copy all breakdowns at once.
 5. Use **Save as PDF** to print or export.
 
 ---
@@ -22,8 +22,8 @@ Split shared purchases across people and categories, then push transactions dire
 ## YNAB integration
 
 1. Go to **app.ynab.com → My Budget → Account Settings → Developer Settings** and create a Personal Access Token.
-2. Paste the token into the **API Key** field on the YNAB tab.
-3. Set your budget name, purchase account, and tracking accounts (Payable / Receivable).
+2. Paste the token into the **API Key** field on the **Setup** tab.
+3. Set your budget name, purchase account, and tracking accounts (Payable / Receivable) on the YNAB tab.
 4. On the YNAB tab, review each transaction preview, choose the direction (you owe / owed to you) per person, then click **Submit to YNAB**.
 
 Categories are matched by name to your YNAB budget at submit time. Use *Group : Category* format in the Main tab (e.g. `Food : Groceries`) to match YNAB's group and category names.
@@ -63,9 +63,9 @@ The proxy only accepts requests from `adamgagorik.github.io` (and localhost).
 
 ---
 
-## Config tab
+## Setup tab
 
-The **Setup** tab manages rosters (people, categories, payees), API credentials for Splitwise, and storage. **Load Defaults** reloads rosters from `config.json`. **Clear Local Storage** resets everything — rows, settings, and all API fields — back to defaults.
+The **Setup** tab manages rosters (people, categories, payees), API credentials for YNAB and Splitwise, and storage. **Load Defaults** reloads rosters from `config.json`. Payees can also be populated via **Fetch from YNAB** or **Fetch from Splitwise**. **Clear All Settings** resets only API keys and account fields. **Clear Local Storage** resets everything — rows, settings, and all API fields — back to defaults.
 
 ### config.json reference
 
