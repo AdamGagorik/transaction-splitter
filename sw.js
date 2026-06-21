@@ -1,6 +1,6 @@
 /* Network-first with cache fallback: updates show when online, app still
    works offline. Bump CACHE to force-refresh cached assets. */
-const CACHE = 'txn-splitter-v2';
+const CACHE = 'txn-splitter-v3';
 const ASSETS = ['./', './index.html', './config.json', './manifest.webmanifest', './icon-192.png', './icon-512.png', './marked.min.js'];
 
 self.addEventListener('install', e => {
@@ -17,6 +17,8 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
+  // Skip cross-origin requests — caching them causes DOMException in Safari.
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then(r => { const cp = r.clone(); caches.open(CACHE).then(c => c.put(e.request, cp)); return r; })
