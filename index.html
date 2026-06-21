@@ -726,6 +726,9 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
     <label for="sw-group-id">Group ID</label>
     <input type="text" id="sw-group-id" placeholder="Optional — numeric group ID" inputmode="numeric">
 
+    <label for="sw-proxy-url">Proxy URL</label>
+    <input type="url" id="sw-proxy-url" placeholder="https://splitwise-proxy.<you>.workers.dev" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="width:320px">
+
     <label for="sw-payer">Payer</label>
     <select id="sw-payer" style="width:200px">
       <option value="">(add rows first)</option>
@@ -733,9 +736,10 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   </div>
 
   <!-- User mapping -->
-  <div style="display:flex;align-items:center;gap:10px;margin-top:4px;margin-bottom:8px">
+  <div style="display:flex;align-items:center;gap:8px;margin-top:4px;margin-bottom:8px;flex-wrap:wrap">
     <h2 style="margin:0">User Mapping</h2>
-    <button id="sw-paste-friends-btn" class="btn-secondary" style="font-size:12px;padding:5px 12px">Paste Friends JSON</button>
+    <button id="sw-fetch-friends-btn" class="btn-primary" style="font-size:12px;padding:5px 12px">Fetch Friends</button>
+    <button id="sw-paste-friends-btn" class="btn-secondary" style="font-size:12px;padding:5px 12px">Paste JSON</button>
     <span id="sw-friends-status" style="font-size:12px;color:#64748b"></span>
   </div>
   <div id="sw-paste-friends-panel" style="display:none;margin-bottom:12px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
@@ -748,7 +752,7 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
       <button id="sw-cancel-friends-btn" class="btn-secondary" style="font-size:12px;padding:5px 14px">Cancel</button>
     </div>
   </div>
-  <p style="font-size:13px;color:#64748b;margin-bottom:10px">Map each assignee to their Splitwise user. Use <strong>Paste Friends JSON</strong> to load your friends list and pick from a dropdown, or enter IDs manually.</p>
+  <p style="font-size:13px;color:#64748b;margin-bottom:10px">Map each assignee to their Splitwise user. Set a <strong>Proxy URL</strong> above and click <strong>Fetch Friends</strong>, or use <strong>Paste JSON</strong> to load from a terminal curl command.</p>
   <div id="sw-user-map"></div>
 
   <!-- Expense preview -->
@@ -2311,6 +2315,11 @@ function getSwApiKey() {
   return document.getElementById('sw-api-key').value.replace(/[\x00-\x1F\x7F]/g, '').trim();
 }
 
+function getSwBase() {
+  const proxy = document.getElementById('sw-proxy-url').value.trim().replace(/\/+$/, '');
+  return proxy || SW_API;
+}
+
 // Splitwise user ID per assignee name, persisted across sessions.
 let swUserMap = {}; // { [assignee]: { userId: '' } }
 let swPayer   = ''; // name of the paying assignee
@@ -2326,6 +2335,7 @@ function swSave() {
       date:        document.getElementById('sw-date').value,
       currency:    document.getElementById('sw-currency').value,
       groupId:     document.getElementById('sw-group-id').value,
+      proxyUrl:    document.getElementById('sw-proxy-url').value.trim(),
       swUserMap,
       swPayer
     }));
@@ -2342,6 +2352,7 @@ function swRestore() {
     if (s.date)        document.getElementById('sw-date').value          = s.date;
     if (s.currency)    document.getElementById('sw-currency').value      = s.currency;
     if (s.groupId)     document.getElementById('sw-group-id').value      = s.groupId;
+    if (s.proxyUrl)    document.getElementById('sw-proxy-url').value     = s.proxyUrl;
     if (s.swUserMap && typeof s.swUserMap === 'object') Object.assign(swUserMap, s.swUserMap);
     if (s.swPayer)     swPayer = s.swPayer;
   } catch (_) {}
@@ -2593,7 +2604,7 @@ function renderSwPane() {
   const jsonStr    = JSON.stringify(payload, null, 2);
   const curlCmd    = [
     `curl -s -X POST \\`,
-    `  "${SW_API}/create_expense" \\`,
+    `  "${getSwBase()}/create_expense" \\`,
     `  -H "Authorization: Bearer ${apiKey ? '****' : '<API_KEY>'}" \\`,
     `  -H "Content-Type: application/json" \\`,
     `  -d '${JSON.stringify(payload)}'`
@@ -2661,7 +2672,7 @@ async function submitToSplitwise() {
 
   try {
     const payload = buildSwPayload(expData);
-    const res  = await fetch(SW_API + '/create_expense', {
+    const res  = await fetch(getSwBase() + '/create_expense', {
       method:  'POST',
       headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
       body:    JSON.stringify(payload)
@@ -2678,6 +2689,34 @@ async function submitToSplitwise() {
     setStatus('err', err.message + extra);
   } finally {
     submitBtn.disabled = false;
+  }
+}
+
+/* ── Fetch friends via proxy ── */
+
+async function fetchSwFriends() {
+  const apiKey   = getSwApiKey();
+  const base     = getSwBase();
+  const statusEl = document.getElementById('sw-friends-status');
+  const btn      = document.getElementById('sw-fetch-friends-btn');
+  if (!apiKey) { if (statusEl) statusEl.textContent = 'Enter API key first.'; return; }
+  if (base === SW_API) { if (statusEl) statusEl.textContent = 'Set a Proxy URL first.'; return; }
+  if (btn) btn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Fetching…';
+  try {
+    const res  = await fetch(base + '/get_friends', {
+      headers: { 'Authorization': 'Bearer ' + apiKey }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    swFriends = (data.friends || []).sort((a, b) =>
+      (a.first_name + ' ' + (a.last_name || '')).localeCompare(b.first_name + ' ' + (b.last_name || '')));
+    if (statusEl) statusEl.textContent = swFriends.length + ' friend' + (swFriends.length === 1 ? '' : 's') + ' loaded';
+    renderSwUserMap();
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Error: ' + err.message;
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -2725,7 +2764,7 @@ function swLoadFriendsFromJson() {
 
 function swRefresh() { renderSwUserMap(); renderSwPane(); swSave(); }
 
-['sw-api-key', 'sw-description', 'sw-date', 'sw-currency', 'sw-group-id'].forEach(id => {
+['sw-api-key', 'sw-description', 'sw-date', 'sw-currency', 'sw-group-id', 'sw-proxy-url'].forEach(id => {
   const el = document.getElementById(id);
   if (el) el.addEventListener('input', swRefresh);
 });
@@ -2746,9 +2785,11 @@ const _swDateEl = document.getElementById('sw-date');
 if (!_swDateEl.value) _swDateEl.value = todayISO();
 renderSwUserMap();
 renderSwPane();
+const _swFetchBtn   = document.getElementById('sw-fetch-friends-btn');
 const _swPasteBtn   = document.getElementById('sw-paste-friends-btn');
 const _swLoadBtn    = document.getElementById('sw-load-friends-btn');
 const _swCancelBtn  = document.getElementById('sw-cancel-friends-btn');
+if (_swFetchBtn)  _swFetchBtn.addEventListener('click', fetchSwFriends);
 if (_swPasteBtn)  _swPasteBtn.addEventListener('click', swOpenPastePanel);
 if (_swLoadBtn)   _swLoadBtn.addEventListener('click', swLoadFriendsFromJson);
 if (_swCancelBtn) _swCancelBtn.addEventListener('click', swClosePastePanel);
