@@ -1,6 +1,6 @@
 # Transaction Splitter
 
-Split shared purchases across people and categories, then push transactions directly to YNAB.
+Split shared purchases across people and categories, then push transactions directly to YNAB or Splitwise.
 
 [GitHub](https://github.com/AdamGagorik/transaction-splitter) · [Live app](https://adamgagorik.github.io/transaction-splitter/)
 
@@ -30,6 +30,30 @@ Categories are matched by name to your YNAB budget at submit time. Use *Group : 
 
 ---
 
+## Splitwise integration
+
+1. Go to **splitwise.com → Account → Your Account → Apps** and create a Personal Access Token.
+2. Paste the token into the **API Key** field on the Splitwise tab.
+3. Set the description, date, currency, and optionally a Group ID.
+4. Click **Fetch Friends** to load your Splitwise contacts. Assignees are auto-matched to friends by first name; use the dropdowns to adjust any that didn't match.
+5. Choose who paid using the **Payer** dropdown.
+6. Review the expense preview and click **Submit to Splitwise**.
+
+A comment is automatically posted to the expense with a full per-person and per-category breakdown.
+
+### Proxy setup (required for browser access)
+
+Splitwise blocks direct browser API calls (CORS). A small Cloudflare Worker acts as a proxy:
+
+1. Sign up at [cloudflare.com](https://cloudflare.com) (free, no credit card).
+2. Go to **Workers & Pages → Create Application → Workers** and create a new Worker.
+3. Paste the contents of [`workers/splitwise-proxy.js`](workers/splitwise-proxy.js) into the editor and deploy.
+4. Copy the worker URL and set `splitwiseProxyUrl` in `config.json`.
+
+The proxy only accepts requests from `adamgagorik.github.io` (and localhost).
+
+---
+
 ## Add to iPhone home screen
 
 1. Open [adamgagorik.github.io/transaction-splitter](https://adamgagorik.github.io/transaction-splitter/) in **Safari**.
@@ -41,8 +65,21 @@ Categories are matched by name to your YNAB budget at submit time. Use *Group : 
 
 ## Config tab
 
-The **Config** tab lets you manage the default rosters for people, categories, and payees shown in the dropdowns. **Load Defaults** reloads from `config.json`. **Clear Local Storage** resets everything — rows, settings, and YNAB fields — back to defaults.
+The **Config** tab lets you manage the default rosters for people, categories, and payees shown in the dropdowns. **Load Defaults** reloads from `config.json`. **Clear Local Storage** resets everything — rows, settings, and YNAB/Splitwise fields — back to defaults.
+
+### config.json reference
+
+| Key | Description |
+|---|---|
+| `defaultPeople` | Default assignee list |
+| `defaultCategories` | Default category list |
+| `defaultPayees` | Default payee list |
+| `ynabBudgetName` | YNAB budget name |
+| `ynabPurchaseAcct` | YNAB account for purchases |
+| `ynabPayableAcct` | YNAB account for amounts you owe |
+| `ynabReceivableAcct` | YNAB account for amounts owed to you |
+| `splitwiseProxyUrl` | Cloudflare Worker URL for the Splitwise proxy |
 
 ---
 
-*All data is stored locally in your browser. Nothing is sent anywhere except directly to the YNAB API when you click Submit.*
+*All data is stored locally in your browser. Nothing is sent anywhere except to the YNAB or Splitwise APIs when you click Submit.*

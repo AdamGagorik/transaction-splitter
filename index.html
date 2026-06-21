@@ -244,7 +244,16 @@ input[type="checkbox"].tax-check {
 .tab-btn.active { background: #6366f1; color: #fff; border-color: #6366f1; }
 
 /* Main (page-level) tabs */
-.main-tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+.main-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px; /* prevent clipping of focus ring */
+}
+.main-tabs::-webkit-scrollbar { display: none; }
 .main-tab-btn {
   background: #f1f5f9;
   color: #64748b;
@@ -254,9 +263,14 @@ input[type="checkbox"].tax-check {
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
 .main-tab-btn.active { background: #6366f1; color: #fff; border-color: #6366f1; }
+@media (max-width: 480px) {
+  .main-tab-btn { padding: 7px 14px; font-size: 13px; }
+}
 
 td.computed.strong { font-weight: 700; color: #1e293b; }
 .muted { color: #cbd5e1; }
