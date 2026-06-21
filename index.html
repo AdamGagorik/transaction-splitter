@@ -733,8 +733,12 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   </div>
 
   <!-- User mapping -->
-  <h2 style="margin-top:4px;margin-bottom:8px">User Mapping</h2>
-  <p style="font-size:13px;color:#64748b;margin-bottom:10px">Map each assignee to their Splitwise User ID. Find IDs via <code style="background:#f1f5f9;padding:1px 5px;border-radius:3px">GET /api/v3.0/get_friends</code> or from Splitwise profile URLs.</p>
+  <div style="display:flex;align-items:center;gap:10px;margin-top:4px;margin-bottom:8px">
+    <h2 style="margin:0">User Mapping</h2>
+    <button id="sw-fetch-friends-btn" class="btn-secondary" style="font-size:12px;padding:5px 12px">Fetch Friends</button>
+    <span id="sw-friends-status" style="font-size:12px;color:#64748b"></span>
+  </div>
+  <p style="font-size:13px;color:#64748b;margin-bottom:10px">Map each assignee to their Splitwise user. Click <strong>Fetch Friends</strong> to load your friends list and pick from a dropdown, or enter IDs manually.</p>
   <div id="sw-user-map"></div>
 
   <!-- Expense preview -->
@@ -2295,6 +2299,7 @@ const { computeRow: _computeRow, esc: escHtml, LS_KEY: _LS_KEY } = window._txnSp
 // Splitwise user ID per assignee name, persisted across sessions.
 let swUserMap = {}; // { [assignee]: { userId: '' } }
 let swPayer   = ''; // name of the paying assignee
+let swFriends = []; // cached GET /get_friends response, in-memory only
 
 /* ── Persist / restore ── */
 
@@ -2430,21 +2435,35 @@ function renderSwUserMap() {
     return;
   }
 
+  const hasFriends = swFriends.length > 0;
+
   let html = `<table style="width:100%;font-size:13px;border-collapse:collapse;margin-bottom:4px">
     <thead><tr>
       <th style="text-align:left;padding:5px 8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b">Assignee</th>
-      <th style="text-align:left;padding:5px 8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b">Splitwise User ID</th>
+      <th style="text-align:left;padding:5px 8px;background:#f8fafc;border-bottom:2px solid #e2e8f0;font-size:12px;color:#64748b">Splitwise User</th>
     </tr></thead><tbody>`;
 
   names.forEach(name => {
     const uid = (swUserMap[name] && swUserMap[name].userId) ? swUserMap[name].userId : '';
+    let inputHtml;
+    if (hasFriends) {
+      const opts = swFriends.map(f => {
+        const label = escHtml(f.first_name + (f.last_name ? ' ' + f.last_name : '') + (f.email ? ' (' + f.email + ')' : ''));
+        return `<option value="${f.id}"${String(f.id) === String(uid) ? ' selected' : ''}>${label}</option>`;
+      }).join('');
+      inputHtml = `<select class="sw-uid-select" data-person="${escHtml(name)}"
+        style="max-width:280px;border:1px solid #e2e8f0;border-radius:5px;padding:4px 7px;font-size:13px">
+        <option value="">— select friend —</option>
+        ${opts}
+      </select>`;
+    } else {
+      inputHtml = `<input type="text" class="sw-uid-input" data-person="${escHtml(name)}"
+        value="${escHtml(uid)}" placeholder="e.g. 12345678" inputmode="numeric"
+        style="width:160px;border:1px solid #e2e8f0;border-radius:5px;padding:4px 7px;font-size:13px">`;
+    }
     html += `<tr>
       <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9;font-weight:500">${escHtml(name)}</td>
-      <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9">
-        <input type="text" class="sw-uid-input" data-person="${escHtml(name)}"
-          value="${escHtml(uid)}" placeholder="e.g. 12345678" inputmode="numeric"
-          style="width:160px;border:1px solid #e2e8f0;border-radius:5px;padding:4px 7px;font-size:13px">
-      </td>
+      <td style="padding:5px 8px;border-bottom:1px solid #f1f5f9">${inputHtml}</td>
     </tr>`;
   });
 
@@ -2456,6 +2475,16 @@ function renderSwUserMap() {
       const p = inp.dataset.person;
       if (!swUserMap[p]) swUserMap[p] = {};
       swUserMap[p].userId = inp.value;
+      swSave();
+      renderSwPane();
+    });
+  });
+
+  container.querySelectorAll('.sw-uid-select').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const p = sel.dataset.person;
+      if (!swUserMap[p]) swUserMap[p] = {};
+      swUserMap[p].userId = sel.value;
       swSave();
       renderSwPane();
     });
@@ -2637,6 +2666,36 @@ async function submitToSplitwise() {
   }
 }
 
+/* ── Fetch Splitwise friends ── */
+
+async function fetchSwFriends() {
+  const apiKey   = document.getElementById('sw-api-key').value.trim();
+  const statusEl = document.getElementById('sw-friends-status');
+  const btn      = document.getElementById('sw-fetch-friends-btn');
+  if (!apiKey) {
+    if (statusEl) statusEl.textContent = 'Enter API key first.';
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Fetching…';
+  try {
+    const res  = await fetch(SW_API + '/get_friends', {
+      headers: { 'Authorization': 'Bearer ' + apiKey }
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    swFriends = (data.friends || []).sort((a, b) =>
+      (a.first_name + ' ' + (a.last_name || '')).localeCompare(b.first_name + ' ' + (b.last_name || '')));
+    if (statusEl) statusEl.textContent = swFriends.length + ' friend' + (swFriends.length === 1 ? '' : 's') + ' loaded';
+    renderSwUserMap();
+  } catch (err) {
+    const extra = err.name === 'TypeError' ? ' — CORS may block direct calls' : '';
+    if (statusEl) statusEl.textContent = 'Error: ' + err.message + extra;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 /* ── Wire settings inputs ── */
 
 function swRefresh() { renderSwUserMap(); renderSwPane(); swSave(); }
@@ -2662,6 +2721,8 @@ const _swDateEl = document.getElementById('sw-date');
 if (!_swDateEl.value) _swDateEl.value = todayISO();
 renderSwUserMap();
 renderSwPane();
+const _swFetchBtn = document.getElementById('sw-fetch-friends-btn');
+if (_swFetchBtn) _swFetchBtn.addEventListener('click', fetchSwFriends);
 
 })();
 </script>
