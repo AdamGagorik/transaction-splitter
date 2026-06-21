@@ -784,8 +784,11 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
 <!-- ── Storage ── -->
 <div class="card">
   <h2>Storage</h2>
-  <p style="font-size:0.875rem;color:#64748b;margin:0 0 12px">Clears all saved rows and YNAB settings. Rosters reload from config.json.</p>
-  <button class="btn-secondary" id="clear-storage-btn">Clear Local Storage</button>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+    <button class="btn-secondary" id="clear-settings-btn">Clear All Settings</button>
+    <button class="btn-secondary" id="clear-storage-btn">Clear Local Storage</button>
+  </div>
+  <p style="font-size:0.8rem;color:#94a3b8;margin:8px 0 0">Clear All Settings resets API keys and account fields. Clear Local Storage also wipes rows and rosters.</p>
 </div>
 
 </div><!-- #main-tab-config -->
@@ -2083,6 +2086,22 @@ wireYnabFetchBtn('payee-fetch-btn', 'Fetch from YNAB', async (plan, headers) => 
   payees.sort((a, b) => a.localeCompare(b));
   renderPayees(); buildMainTable(); persist();
   return `Added ${fetched.length} payees`;
+});
+
+/* ── "Clear All Settings" button (two-click confirm) ── */
+wireTwoClickBtn('clear-settings-btn', 'Clear All Settings', 'Click again to confirm', () => {
+  try { localStorage.removeItem('txn-splitter-ynab-v1'); } catch (_) {}
+  try { localStorage.removeItem('txn-splitter-sw-v1');   } catch (_) {}
+  document.getElementById('ynab-api-key').value         = '';
+  document.getElementById('ynab-budget-name').value     = DEFAULT_YNAB.budgetName;
+  document.getElementById('ynab-purchase-acct').value   = DEFAULT_YNAB.purchaseAcct;
+  document.getElementById('ynab-payable-acct').value    = DEFAULT_YNAB.payableAcct;
+  document.getElementById('ynab-receivable-acct').value = DEFAULT_YNAB.receivableAcct;
+  document.getElementById('sw-api-key').value           = '';
+  document.getElementById('sw-proxy-url').value         = '';
+  document.getElementById('sw-description').value       = '';
+  document.getElementById('sw-currency').value          = 'USD';
+  document.getElementById('sw-group-id').value          = '';
 });
 
 /* ── "Clear Local Storage" button (two-click confirm) ── */
