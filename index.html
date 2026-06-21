@@ -196,7 +196,7 @@ select:focus {
   color: #475569;
 }
 .tf-field input {
-  width: 120px;
+  width: 80px;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   padding: 6px 10px;
@@ -221,6 +221,17 @@ select:focus {
 }
 
 .num-input.rate-input { width: 48px; }
+
+.detail-row td {
+  padding: 1px 4px 5px;
+  background: #f8fafc;
+  border-top: none;
+}
+.detail-selects {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 .num-input:disabled {
   background: #f1f5f9;
   color: #cbd5e1;
@@ -544,15 +555,11 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
       <thead>
         <tr>
           <th>Amount</th>
+          <th class="th-center">Fraction</th>
           <th>Effective</th>
-          <th>Tax</th>
-          <th>Total</th>
           <th class="th-center">Taxed</th>
           <th>Rate %</th>
-          <th class="th-left">Payee</th>
-          <th class="th-left">Assignee</th>
-          <th class="th-left">Category</th>
-          <th class="th-center">Fraction</th>
+          <th>Total</th>
           <th class="th-center" style="width:42px"></th>
         </tr>
       </thead>
@@ -570,16 +577,16 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
   <h2>Tax, Tips &amp; Fees</h2>
   <div class="tf-row">
     <div class="tf-field">
-      <span>Default tax rate (%)</span>
       <input type="text" inputmode="decimal" id="default-tax-input" value="7" placeholder="7">
+      <span>Tax Rate %</span>
     </div>
     <div class="tf-field">
-      <span>Tip ($)</span>
       <input type="text" inputmode="decimal" id="tip-input" value="" placeholder="0.00">
+      <span>Tip $</span>
     </div>
     <div class="tf-field">
-      <span>Fee ($)</span>
       <input type="text" inputmode="decimal" id="fee-input" value="" placeholder="0.00">
+      <span>Fee $</span>
     </div>
   </div>
 </div>
@@ -1012,33 +1019,35 @@ function buildMainTable() {
       <td><input type="text" inputmode="decimal" class="num-input"
             value="${esc(moneyDisplay(r.amount))}" placeholder="0.00"
             data-row="${i}" data-col="amount"></td>
+      <td class="td-center">
+        <select class="frac-sel" data-row="${i}" data-col="fraction">${fracOpts}</select></td>
       <td class="computed" data-cr="${i}" data-cc="eff">${fmt(c.eff)}</td>
-      <td class="computed" data-cr="${i}" data-cc="tax">${fmt(c.tax)}</td>
-      <td class="computed" data-cr="${i}" data-cc="tot">${fmt(c.total)}</td>
       <td class="td-center"><input type="checkbox" class="tax-check"
             data-row="${i}" data-col="taxed"${r.taxed ? ' checked' : ''}></td>
       <td><input type="text" inputmode="decimal" class="num-input rate-input"
             value="${esc(r.rateOverride)}" data-row="${i}" data-col="rateOverride"
             placeholder="${curDefaultRate()}"${r.taxed ? '' : ' disabled'}></td>
-      <td class="td-left">
-        <select class="payee-sel" data-row="${i}" data-col="payee">${payeeOptions(r.payee)}</select></td>
-      <td class="td-left">
-        <select class="asgn-sel" data-row="${i}" data-col="assignee">${assigneeOptions(r.assignee)}</select></td>
-      <td class="td-left">
-        <select class="cat-sel" data-row="${i}" data-col="category">${categoryOptions(r.category)}</select></td>
-      <td class="td-center">
-        <select class="frac-sel" data-row="${i}" data-col="fraction">${fracOpts}</select></td>
+      <td class="computed" data-cr="${i}" data-cc="tot">${fmt(c.total)}</td>
       <td class="td-center">
         <button class="remove-btn" data-remove="${i}" title="Remove row">✕</button></td>
+    </tr>
+    <tr class="detail-row">
+      <td colspan="7">
+        <div class="detail-selects">
+          <select class="payee-sel" data-row="${i}" data-col="payee">${payeeOptions(r.payee)}</select>
+          <select class="asgn-sel" data-row="${i}" data-col="assignee">${assigneeOptions(r.assignee)}</select>
+          <select class="cat-sel" data-row="${i}" data-col="category">${categoryOptions(r.category)}</select>
+        </div>
+      </td>
     </tr>`;
   }).join('');
 
   const totRow = `<tr class="totals-row">
     <td class="computed" id="tot-amt">${fmt(sumEff)}</td>
+    <td></td>
     <td class="computed" id="tot-eff">${fmt(sumEff)}</td>
-    <td class="computed" id="tot-tax">${fmt(sumTax)}</td>
+    <td></td><td></td>
     <td class="computed" id="tot-tot">${fmt(sumTot)}</td>
-    <td></td><td></td><td></td><td></td><td></td><td></td>
     <td></td>
   </tr>`;
 
