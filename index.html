@@ -706,9 +706,8 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
   <h2>Export</h2>
   <div class="btn-row" style="margin-top:0">
     <button class="btn-primary" id="pdf-btn">Save as PDF</button>
-    <button class="btn-secondary" id="email-btn">Copy Summary</button>
   </div>
-  <p class="empty-state" style="margin-top:8px">"Save as PDF" uses your browser's print dialog — choose "Save as PDF". "Copy Summary" copies a formatted breakdown to your clipboard — paste it into an email.</p>
+  <p class="empty-state" style="margin-top:8px">"Save as PDF" uses your browser's print dialog — choose "Save as PDF".</p>
 </div>
 
 </div><!-- #main-tab-split -->
@@ -1836,31 +1835,6 @@ function emailSummaryText() {
   return lines.join('\n');
 }
 
-document.getElementById('email-btn').addEventListener('click', () => {
-  const btn  = document.getElementById('email-btn');
-  const html = emailSummaryHTML();
-  const text = emailSummaryText();
-
-  function flash(label, delay = 2500) {
-    const orig = btn.textContent;
-    btn.textContent = label;
-    btn.disabled = true;
-    setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, delay);
-  }
-
-  if (navigator.clipboard && window.ClipboardItem) {
-    const htmlBlob = new Blob([html], { type: 'text/html' });
-    const textBlob = new Blob([text], { type: 'text/plain' });
-    navigator.clipboard.write([new ClipboardItem({ 'text/html': htmlBlob, 'text/plain': textBlob })])
-      .then(() => flash('Copied! Paste into email'))
-      .catch(() => navigator.clipboard.writeText(text).then(() => flash('Copied!')).catch(() => flash('Error', 1800)));
-  } else if (navigator.clipboard) {
-    navigator.clipboard.writeText(text).then(() => flash('Copied!')).catch(() => flash('Error', 1800));
-  } else {
-    flash('Error', 1800);
-  }
-});
-
 /* ── Per-person summary copy ── */
 
 function buildPersonSummaryParts(person) {
@@ -2224,7 +2198,6 @@ function ynabSave() {
   try {
     localStorage.setItem(LS_YNAB, JSON.stringify({
       apiKey:         document.getElementById('ynab-api-key').value,
-      txnDate:        document.getElementById('ynab-date').value,
       budgetName:     document.getElementById('ynab-budget-name').value,
       purchaseAcct:   document.getElementById('ynab-purchase-acct').value,
       payableAcct:    document.getElementById('ynab-payable-acct').value,
@@ -2239,7 +2212,6 @@ function ynabRestore() {
     if (!raw) return;
     const s = JSON.parse(raw);
     if (s.apiKey)         document.getElementById('ynab-api-key').value          = s.apiKey;
-    if (s.txnDate)        document.getElementById('ynab-date').value              = s.txnDate;
     if (s.budgetName)     document.getElementById('ynab-budget-name').value       = s.budgetName;
     if (s.purchaseAcct)   document.getElementById('ynab-purchase-acct').value     = s.purchaseAcct;
     if (s.payableAcct)    document.getElementById('ynab-payable-acct').value      = s.payableAcct;
@@ -2649,8 +2621,7 @@ _ynabObserver.observe(document.getElementById('sum-tbody'), { childList: true, s
 
 /* ── Bootstrap ── */
 ynabRestore();
-const _dateEl = document.getElementById('ynab-date');
-if (!_dateEl.value) _dateEl.value = todayISO();
+document.getElementById('ynab-date').value = todayISO();
 renderYnabPanes();
 
 })();
@@ -2689,7 +2660,6 @@ function swSave() {
     localStorage.setItem(LS_SW, JSON.stringify({
       apiKey:      document.getElementById('sw-api-key').value,
       description: document.getElementById('sw-description').value,
-      date:        document.getElementById('sw-date').value,
       currency:    document.getElementById('sw-currency').value,
       groupId:     document.getElementById('sw-group-id').value,
       proxyUrl:    document.getElementById('sw-proxy-url').value.trim(),
@@ -2706,7 +2676,6 @@ function swRestore() {
     const s = JSON.parse(raw);
     if (s.apiKey)      document.getElementById('sw-api-key').value      = s.apiKey;
     if (s.description) document.getElementById('sw-description').value  = s.description;
-    if (s.date)        document.getElementById('sw-date').value          = s.date;
     if (s.currency)    document.getElementById('sw-currency').value      = s.currency;
     if (s.groupId)     document.getElementById('sw-group-id').value      = s.groupId;
     if (s.proxyUrl)    document.getElementById('sw-proxy-url').value     = s.proxyUrl;
@@ -3239,8 +3208,7 @@ _swObserver.observe(document.getElementById('sum-tbody'), { childList: true, sub
 
 /* ── Bootstrap ── */
 swRestore();
-const _swDateEl = document.getElementById('sw-date');
-if (!_swDateEl.value) _swDateEl.value = todayISO();
+document.getElementById('sw-date').value = todayISO();
 renderSwUserMap();
 renderSwPane();
 const _swFetchBtn        = document.getElementById('sw-fetch-friends-btn');
