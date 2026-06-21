@@ -298,7 +298,7 @@ function buildMainTable() {
       </div>`;
     }).join('');
 
-    return `<div class="row-card">
+    return `<div class="row-card" data-card-idx="${i}">
       <div class="row-card-hdr" data-toggle="${i}">
         <span class="row-toggle">${arrow}</span>
         <span class="row-card-summary" data-rh="${i}">${esc(rowSummary(r, c))}</span>
@@ -397,6 +397,52 @@ function refreshMainComputeds() {
 
   const totEl = document.getElementById('tot-tot');
   if (totEl) totEl.textContent = fmt(sumTot);
+}
+
+function rebuildCardSplits(idx) {
+  const card = document.querySelector(`[data-card-idx="${idx}"]`);
+  if (!card) { fullRender(); return; }
+
+  const r = rows[idx];
+  const c = computeRow(r);
+  const splits = rowSplits(r);
+
+  const splitsHtml = splits.map((s, j) => {
+    const sc       = c.splits[j] || { total: 0 };
+    const fracOpts = FRAC_OPTS.map(f =>
+      `<option value="${f}"${s.fraction === f ? ' selected' : ''}>${f}</option>`
+    ).join('');
+    const rmBtn = splits.length > 1
+      ? `<button class="remove-split-btn" data-remove-split="${idx}" data-split="${j}" title="Remove person">✕</button>`
+      : '';
+    return `<div class="split-row">
+      <div class="row-field">
+        <span class="row-lbl">Person</span>
+        <div class="combo-wrap">
+          <input type="text" class="combo-input" data-row="${idx}" data-split="${j}" data-col="assignee" data-combo="people" value="${esc(s.assignee)}" autocomplete="off" placeholder="Person">
+          <ul class="combo-list"></ul>
+        </div>
+      </div>
+      <div class="row-field">
+        <span class="row-lbl">Fraction</span>
+        <select class="frac-sel" data-row="${idx}" data-split="${j}" data-col="fraction">${fracOpts}</select>
+      </div>
+      <div class="row-field">
+        <span class="row-lbl">Owes</span>
+        <span class="row-computed-val" data-cr="${idx}" data-split="${j}" data-cc="tot">${fmt(sc.total)}</span>
+      </div>
+      ${rmBtn}
+    </div>`;
+  }).join('');
+
+  const section = card.querySelector('.splits-section');
+  section.innerHTML = splitsHtml + `<button class="add-split-btn" data-add-split="${idx}">+ Add Person</button>`;
+  attachAllCombos(section);
+
+  refreshMainComputeds();
+  buildCategoryTable();
+  buildSummaryTable();
+  persist();
 }
 
 /* ── Category pivot table ──────────────────────────────────────────── */
@@ -750,7 +796,7 @@ mainCards.addEventListener('click', e => {
         splits.splice(sidx, 1);
         rows[idx].splits = splits;
         applyEqualFractions(splits);
-        fullRender();
+        rebuildCardSplits(idx);
       }
     }
     return;
@@ -765,7 +811,7 @@ mainCards.addEventListener('click', e => {
       const nextPerson = people.find(p => !usedNames.has(p)) || DEFAULT_PEOPLE.find(p => !usedNames.has(p)) || '';
       splits.push({ assignee: nextPerson, fraction: '1' });
       applyEqualFractions(splits);
-      fullRender();
+      rebuildCardSplits(idx);
     }
     return;
   }
