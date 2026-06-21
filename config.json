@@ -6,5 +6,5 @@
   "ynabPurchaseAcct":     "Apple : Mastercard",
   "ynabPayableAcct":      "Payable",
   "ynabReceivableAcct":   "Receivable",
-  "splitwiseProxyUrl":    ""
+  "splitwiseProxyUrl":    "https://splitwise-proxy.agg-open-claw.workers.dev"
 }
