@@ -2498,7 +2498,7 @@ async function submitToYnab(idx) {
     statusEl.textContent = msg;
   }
 
-  if (!apiKey)     { setStatus('err', 'Please enter your YNAB API Key.'); return; }
+  if (!apiKey)     { setStatus('err', 'Please enter your YNAB API Key on the Setup tab.'); return; }
   if (!budgetName) { setStatus('err', 'Please enter the Budget Name.'); return; }
 
   const txns = buildAllYnabTransactions();
@@ -3093,7 +3093,7 @@ async function fetchSwFriends() {
   const base     = getSwBase();
   const statusEl = document.getElementById('sw-friends-status');
   const btn      = document.getElementById('sw-fetch-friends-btn');
-  if (!apiKey) { if (statusEl) statusEl.textContent = 'Enter API key first.'; return; }
+  if (!apiKey) { if (statusEl) statusEl.textContent = 'Enter API key on the Setup tab first.'; return; }
   if (base === SW_API) { if (statusEl) statusEl.textContent = 'Set a Proxy URL first.'; return; }
   if (btn) btn.disabled = true;
   if (statusEl) statusEl.textContent = 'Fetching…';
@@ -3172,7 +3172,7 @@ async function fetchSwGroups() {
   const base     = getSwBase();
   const statusEl = document.getElementById('sw-groups-status');
   const btn      = document.getElementById('sw-fetch-groups-btn');
-  if (!apiKey) { if (statusEl) statusEl.textContent = 'Enter API key first.'; return; }
+  if (!apiKey) { if (statusEl) statusEl.textContent = 'Enter API key on the Setup tab first.'; return; }
   if (base === SW_API) { if (statusEl) statusEl.textContent = 'Set a Proxy URL first.'; return; }
   if (btn) btn.disabled = true;
   if (statusEl) statusEl.textContent = 'Fetching…';
