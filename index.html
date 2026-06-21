@@ -786,10 +786,10 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
 <div class="card">
   <h2>Storage</h2>
   <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
-    <button class="btn-secondary" id="clear-settings-btn">Clear All Settings</button>
+    <button class="btn-secondary" id="clear-settings-btn">Clear Settings</button>
     <button class="btn-secondary" id="clear-storage-btn">Clear Local Storage</button>
   </div>
-  <p style="font-size:0.8rem;color:#94a3b8;margin:8px 0 0">Clear All Settings resets API keys and account fields. Clear Local Storage also wipes rows and rosters.</p>
+  <p style="font-size:0.8rem;color:#94a3b8;margin:8px 0 0">Clear Settings wipes known payees, categories, and assignees (API keys are preserved). Clear Local Storage resets everything — API keys, transactions, user/group IDs, and all stored data.</p>
 </div>
 
 </div><!-- #main-tab-config -->
@@ -2089,20 +2089,13 @@ wireYnabFetchBtn('payee-fetch-btn', 'Fetch from YNAB', async (plan, headers) => 
   return `Added ${fetched.length} payees`;
 });
 
-/* ── "Clear All Settings" button (two-click confirm) ── */
-wireTwoClickBtn('clear-settings-btn', 'Clear All Settings', 'Click again to confirm', () => {
-  try { localStorage.removeItem('txn-splitter-ynab-v1'); } catch (_) {}
-  try { localStorage.removeItem('txn-splitter-sw-v1');   } catch (_) {}
-  document.getElementById('ynab-api-key').value         = '';
-  document.getElementById('ynab-budget-name').value     = DEFAULT_YNAB.budgetName;
-  document.getElementById('ynab-purchase-acct').value   = DEFAULT_YNAB.purchaseAcct;
-  document.getElementById('ynab-payable-acct').value    = DEFAULT_YNAB.payableAcct;
-  document.getElementById('ynab-receivable-acct').value = DEFAULT_YNAB.receivableAcct;
-  document.getElementById('sw-api-key').value           = '';
-  document.getElementById('sw-proxy-url').value         = '';
-  document.getElementById('sw-description').value       = '';
-  document.getElementById('sw-currency').value          = 'USD';
-  document.getElementById('sw-group-id').value          = '';
+/* ── "Clear Settings" button — clears rosters only, preserves API keys ── */
+wireTwoClickBtn('clear-settings-btn', 'Clear Settings', 'Click again to confirm', () => {
+  people.length     = 0;
+  categories.length = 0;
+  payees.length     = 0;
+  renderPeople(); renderCategories(); renderPayees();
+  buildMainTable(); persist();
 });
 
 /* ── "Clear Local Storage" button (two-click confirm) ── */
@@ -2125,6 +2118,7 @@ wireTwoClickBtn('clear-storage-btn', 'Clear Local Storage', 'Click again to conf
   document.getElementById('ynab-payable-acct').value    = DEFAULT_YNAB.payableAcct;
   document.getElementById('ynab-receivable-acct').value = DEFAULT_YNAB.receivableAcct;
   document.getElementById('sw-api-key').value           = '';
+  document.getElementById('sw-proxy-url').value         = '';
   document.getElementById('sw-description').value       = '';
   document.getElementById('sw-date').value              = new Date().toLocaleDateString('en-CA');
   document.getElementById('sw-currency').value          = 'USD';
