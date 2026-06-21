@@ -2426,20 +2426,19 @@ function buildSwPayload(expData) {
   const currency = document.getElementById('sw-currency').value.trim()    || 'USD';
   const groupId  = document.getElementById('sw-group-id').value.trim();
 
-  const users = persons.map(p => ({
-    user_id:    p.userId || null,
-    paid_share: (p.name === payer ? cost : 0).toFixed(2),
-    owed_share: p.total.toFixed(2)
-  }));
-
+  // Splitwise requires flattened double-underscore keys, not a nested users array.
   const payload = {
     cost:          cost.toFixed(2),
     description:   desc,
     date:          getSwDate(),
     currency_code: currency,
     split_equally: false,
-    users
   };
+  persons.forEach((p, i) => {
+    payload[`users__${i}__user_id`]    = parseInt(p.userId, 10) || p.userId;
+    payload[`users__${i}__paid_share`] = (p.name === payer ? cost : 0).toFixed(2);
+    payload[`users__${i}__owed_share`] = p.total.toFixed(2);
+  });
   if (groupId) payload.group_id = parseInt(groupId, 10) || groupId;
   return payload;
 }
