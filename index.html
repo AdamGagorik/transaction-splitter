@@ -740,6 +740,7 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
     <h2 style="margin:0">User Mapping</h2>
     <button id="sw-fetch-friends-btn" class="btn-primary" style="font-size:12px;padding:5px 12px">Fetch Friends</button>
     <button id="sw-paste-friends-btn" class="btn-secondary" style="font-size:12px;padding:5px 12px">Paste JSON</button>
+    <button id="sw-clear-friends-btn" class="btn-secondary" style="font-size:12px;padding:5px 12px">Clear</button>
     <span id="sw-friends-status" style="font-size:12px;color:#64748b"></span>
   </div>
   <div id="sw-paste-friends-panel" style="display:none;margin-bottom:12px;padding:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px">
@@ -2643,6 +2644,52 @@ function renderSwPane() {
   document.getElementById('sw-submit-btn').addEventListener('click', submitToSplitwise);
 }
 
+/* ── Build expense comment text ── */
+
+function buildSwComment(expData) {
+  const rows   = _getRows();
+  const tipVal = parseFloat(document.getElementById('tip-input').value) || 0;
+  const feeVal = parseFloat(document.getElementById('fee-input').value) || 0;
+  const { persons, cost } = expData;
+
+  // By category
+  const catTotals = {}, catSeen = new Set();
+  const catOrder  = [];
+  rows.forEach(r => {
+    const comp = _computeRow(r);
+    if (comp.total < 1e-9) return;
+    const cat = (r.category || '').trim() || '(uncategorized)';
+    if (!catSeen.has(cat)) { catSeen.add(cat); catOrder.push(cat); catTotals[cat] = 0; }
+    catTotals[cat] += comp.eff + comp.tax;
+  });
+
+  const lines = [];
+
+  lines.push('By person:');
+  persons.forEach(p => {
+    const parts = [];
+    if (p.items) parts.push(`items $${p.items.toFixed(2)}`);
+    if (p.tax)   parts.push(`tax $${p.tax.toFixed(2)}`);
+    if (p.tip)   parts.push(`tip $${p.tip.toFixed(2)}`);
+    if (p.fee)   parts.push(`fee $${p.fee.toFixed(2)}`);
+    lines.push(`  ${p.name}: $${p.total.toFixed(2)}` + (parts.length ? ` (${parts.join(', ')})` : ''));
+  });
+
+  if (catOrder.length) {
+    lines.push('');
+    lines.push('By category:');
+    catOrder.forEach(cat => lines.push(`  ${cat}: $${catTotals[cat].toFixed(2)}`));
+  }
+
+  const extras = [];
+  if (tipVal) extras.push(`tip $${tipVal.toFixed(2)}`);
+  if (feeVal) extras.push(`fee $${feeVal.toFixed(2)}`);
+  lines.push('');
+  lines.push(`Total: $${cost.toFixed(2)}` + (extras.length ? ` (incl. ${extras.join(', ')})` : ''));
+
+  return lines.join('\n');
+}
+
 /* ── Submit to Splitwise API ── */
 
 async function submitToSplitwise() {
@@ -2683,8 +2730,16 @@ async function submitToSplitwise() {
       const detail = data.errors ? JSON.stringify(data.errors) : (res.status + ' ' + res.statusText);
       throw new Error('Splitwise error: ' + detail);
     }
-    const expId = data.expenses && data.expenses[0] ? data.expenses[0].id : '?';
-    setStatus('ok', 'Expense created! ID: ' + expId);
+    const expId = data.expenses && data.expenses[0] ? data.expenses[0].id : null;
+    if (expId) {
+      const comment = buildSwComment(expData);
+      await fetch(getSwBase() + '/create_comment', {
+        method:  'POST',
+        headers: { 'Authorization': 'Bearer ' + apiKey, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ expense_id: expId, content: comment })
+      });
+    }
+    setStatus('ok', 'Expense created! ID: ' + (expId || '?'));
   } catch (err) {
     const extra = (err.name === 'TypeError') ? ' — CORS may block direct calls; use the curl command instead.' : '';
     setStatus('err', err.message + extra);
@@ -2813,10 +2868,17 @@ if (!_swDateEl.value) _swDateEl.value = todayISO();
 renderSwUserMap();
 renderSwPane();
 const _swFetchBtn   = document.getElementById('sw-fetch-friends-btn');
+const _swClearFriendsBtn = document.getElementById('sw-clear-friends-btn');
 const _swPasteBtn   = document.getElementById('sw-paste-friends-btn');
 const _swLoadBtn    = document.getElementById('sw-load-friends-btn');
 const _swCancelBtn  = document.getElementById('sw-cancel-friends-btn');
 if (_swFetchBtn)  _swFetchBtn.addEventListener('click', fetchSwFriends);
+if (_swClearFriendsBtn) _swClearFriendsBtn.addEventListener('click', () => {
+  swFriends = [];
+  const statusEl = document.getElementById('sw-friends-status');
+  if (statusEl) statusEl.textContent = '';
+  renderSwUserMap();
+});
 if (_swPasteBtn)  _swPasteBtn.addEventListener('click', swOpenPastePanel);
 if (_swLoadBtn)   _swLoadBtn.addEventListener('click', swLoadFriendsFromJson);
 if (_swCancelBtn) _swCancelBtn.addEventListener('click', swClosePastePanel);
