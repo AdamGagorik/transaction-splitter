@@ -248,6 +248,13 @@ select:focus {
 .row-lbl { font-size: 10px; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; }
 .row-computed-val { font-size: 14px; font-weight: 600; color: #334155; padding: 5px 0 4px; min-width: 60px; }
 .row-cards-total { text-align: right; font-size: 13px; font-weight: 600; color: #475569; padding: 4px 2px 8px; }
+
+.splits-section { display: flex; flex-direction: column; gap: 4px; padding: 2px 0 4px; }
+.split-row { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+.remove-split-btn { background: none; border: 1px solid #fca5a5; color: #dc2626; border-radius: 4px; padding: 3px 7px; font-size: 12px; cursor: pointer; margin-bottom: 3px; flex-shrink: 0; }
+.remove-split-btn:hover { background: #fee2e2; }
+.add-split-btn { background: none; border: 1px dashed #cbd5e1; color: #64748b; border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer; align-self: flex-start; margin-top: 2px; }
+.add-split-btn:hover { border-color: #6366f1; color: #6366f1; background: #f5f3ff; }
 .num-input:disabled {
   background: #f1f5f9;
   color: #cbd5e1;
@@ -852,7 +859,12 @@ let payees     = [];
 /* ── Pure helpers ──────────────────────────────────────────────────── */
 
 function newRow() {
-  return { amount: '', taxed: false, rateOverride: '', payee: DEFAULT_PAYEES[0] || '', assignee: DEFAULT_PEOPLE[0] || '', category: DEFAULT_CATEGORIES[0] || '', fraction: '1' };
+  return { amount: '', taxed: false, rateOverride: '', payee: DEFAULT_PAYEES[0] || '', category: DEFAULT_CATEGORIES[0] || '', splits: [{ assignee: DEFAULT_PEOPLE[0] || '', fraction: '1' }] };
+}
+
+function rowSplits(r) {
+  if (Array.isArray(r.splits) && r.splits.length > 0) return r.splits;
+  return [{ assignee: r.assignee || '', fraction: r.fraction || '1' }];
 }
 
 function curDefaultRate() {
@@ -974,12 +986,19 @@ function rowRate(r) {
 }
 
 function computeRow(r) {
-  const frac   = FRAC_VAL[r.fraction] ?? 1;
   const amount = parseFloat(r.amount) || 0;
-  const eff    = amount * frac;
-  const tax    = rowRate(r) * eff;
-  const total  = eff + tax;
-  return { eff, tax, total };
+  const rate   = rowRate(r);
+  const splits = rowSplits(r).map(s => {
+    const frac  = FRAC_VAL[s.fraction] ?? 1;
+    const eff   = amount * frac;
+    const tax   = rate * eff;
+    const total = eff + tax;
+    return { eff, tax, total };
+  });
+  const eff   = splits.reduce((s, c) => s + c.eff,   0);
+  const tax   = splits.reduce((s, c) => s + c.tax,   0);
+  const total = splits.reduce((s, c) => s + c.total, 0);
+  return { eff, tax, total, splits };
 }
 
 /* ── Full rebuild ──────────────────────────────────────────────────── */
@@ -1003,7 +1022,8 @@ function partialUpdate() {
 /* ── Main table ────────────────────────────────────────────────────── */
 
 function rowSummary(r, c) {
-  const who  = [r.payee, r.assignee].filter(Boolean).join(' · ');
+  const asgns = rowSplits(r).map(s => s.assignee).filter(Boolean);
+  const who   = [r.payee, ...asgns].filter(Boolean).join(' · ');
   return `${who} — ${fmt(c.total)}`;
 }
 
@@ -1014,12 +1034,36 @@ function buildMainTable() {
   comp.forEach(c => { sumTot += c.total; });
 
   container.innerHTML = rows.map((r, i) => {
-    const c = comp[i];
-    const fracOpts = FRAC_OPTS.map(f =>
-      `<option value="${f}"${r.fraction === f ? ' selected' : ''}>${f}</option>`
-    ).join('');
+    const c         = comp[i];
+    const splits    = rowSplits(r);
     const collapsed = r._collapsed ? ' collapsed' : '';
     const arrow     = r._collapsed ? '▶' : '▼';
+
+    const splitsHtml = splits.map((s, j) => {
+      const sc       = c.splits[j] || { total: 0 };
+      const fracOpts = FRAC_OPTS.map(f =>
+        `<option value="${f}"${s.fraction === f ? ' selected' : ''}>${f}</option>`
+      ).join('');
+      const rmBtn = splits.length > 1
+        ? `<button class="remove-split-btn" data-remove-split="${i}" data-split="${j}" title="Remove person">✕</button>`
+        : '';
+      return `<div class="split-row">
+        <div class="row-field">
+          <span class="row-lbl">Person</span>
+          <select class="asgn-sel" data-row="${i}" data-split="${j}" data-col="assignee">${assigneeOptions(s.assignee)}</select>
+        </div>
+        <div class="row-field">
+          <span class="row-lbl">Fraction</span>
+          <select class="frac-sel" data-row="${i}" data-split="${j}" data-col="fraction">${fracOpts}</select>
+        </div>
+        <div class="row-field">
+          <span class="row-lbl">Owes</span>
+          <span class="row-computed-val" data-cr="${i}" data-split="${j}" data-cc="tot">${fmt(sc.total)}</span>
+        </div>
+        ${rmBtn}
+      </div>`;
+    }).join('');
+
     return `<div class="row-card">
       <div class="row-card-hdr" data-toggle="${i}">
         <span class="row-toggle">${arrow}</span>
@@ -1034,16 +1078,6 @@ function buildMainTable() {
               value="${esc(moneyDisplay(r.amount))}" placeholder="0.00"
               data-row="${i}" data-col="amount">
           </div>
-          <div class="row-field">
-            <span class="row-lbl">Fraction</span>
-            <select class="frac-sel" data-row="${i}" data-col="fraction">${fracOpts}</select>
-          </div>
-          <div class="row-field">
-            <span class="row-lbl">Effective</span>
-            <span class="row-computed-val" data-cr="${i}" data-cc="eff">${fmt(c.eff)}</span>
-          </div>
-        </div>
-        <div class="row-line">
           <div class="row-field" style="flex-direction:row;align-items:center;gap:6px;padding-bottom:3px">
             <input type="checkbox" class="tax-check" data-row="${i}" data-col="taxed"${r.taxed ? ' checked' : ''}>
             <span class="row-lbl" style="text-transform:none;letter-spacing:0;font-size:12px">Taxed?</span>
@@ -1059,18 +1093,16 @@ function buildMainTable() {
             <span class="row-computed-val" data-cr="${i}" data-cc="tax">${fmt(c.tax)}</span>
           </div>
         </div>
+        <div class="splits-section">
+          ${splitsHtml}
+          <button class="add-split-btn" data-add-split="${i}">+ Add Person</button>
+        </div>
         <div class="row-line">
           <div class="row-field">
             <span class="row-lbl">Payee</span>
             <select class="payee-sel" data-row="${i}" data-col="payee">${payeeOptions(r.payee)}</select>
           </div>
-          <div class="row-field">
-            <span class="row-lbl">Assignee</span>
-            <select class="asgn-sel" data-row="${i}" data-col="assignee">${assigneeOptions(r.assignee)}</select>
-          </div>
-        </div>
-        <div class="row-line">
-          <div class="row-field" style="width:100%">
+          <div class="row-field" style="flex:1;min-width:0">
             <span class="row-lbl">Category</span>
             <select class="cat-sel" data-row="${i}" data-col="category" style="width:100%">${categoryOptions(r.category)}</select>
           </div>
@@ -1078,7 +1110,7 @@ function buildMainTable() {
         <div class="row-line" style="justify-content:flex-end">
           <div class="row-field" style="align-items:flex-end">
             <span class="row-lbl">Total</span>
-            <span class="row-computed-val" data-cr="${i}" data-cc="tot" style="font-size:16px;color:#1e293b">${fmt(c.total)}</span>
+            <span class="row-computed-val" data-cr="${i}" data-cc="rtot" style="font-size:16px;color:#1e293b">${fmt(c.total)}</span>
           </div>
         </div>
       </div>
@@ -1099,10 +1131,16 @@ function refreshMainComputeds() {
     const c = comp[i];
     sumTot += c.total;
 
-    const q  = cc => document.querySelector(`[data-cr="${i}"][data-cc="${cc}"]`);
-    const ce = q('eff'); if (ce) ce.textContent = fmt(c.eff);
-    const ct = q('tax'); if (ct) ct.textContent = fmt(c.tax);
-    const cr = q('tot'); if (cr) cr.textContent = fmt(c.total);
+    const q = (cc, split) => split === undefined
+      ? document.querySelector(`[data-cr="${i}"][data-cc="${cc}"]:not([data-split])`)
+      : document.querySelector(`[data-cr="${i}"][data-split="${split}"][data-cc="${cc}"]`);
+
+    const ct = q('tax');  if (ct) ct.textContent = fmt(c.tax);
+    const cr = q('rtot'); if (cr) cr.textContent = fmt(c.total);
+
+    c.splits.forEach((sc, j) => {
+      const st = q('tot', j); if (st) st.textContent = fmt(sc.total);
+    });
 
     const hdr = document.querySelector(`[data-rh="${i}"]`);
     if (hdr) hdr.textContent = rowSummary(r, c);
@@ -1131,21 +1169,26 @@ function buildCategoryTable() {
   const catOrder  = [], catSet  = new Set();
   const asgnOrder = [], asgnSet = new Set();
   const effByCat = {}, taxByCat = {};
-  rows.forEach(r => {
-    const cat  = norm(r.category, '(uncategorized)');
-    const asgn = norm(r.assignee, '(unassigned)');
-    if (!catSet.has(cat))   { catSet.add(cat);   catOrder.push(cat); effByCat[cat] = 0; taxByCat[cat] = 0; }
-    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); }
+  rows.forEach((r, i) => {
+    const cat = norm(r.category, '(uncategorized)');
+    if (!catSet.has(cat)) { catSet.add(cat); catOrder.push(cat); effByCat[cat] = 0; taxByCat[cat] = 0; }
+    rowSplits(r).forEach(s => {
+      const asgn = norm(s.assignee, '(unassigned)');
+      if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); }
+    });
   });
 
   const M = {};
   asgnOrder.forEach(a => { M[a] = {}; catOrder.forEach(c => { M[a][c] = 0; }); });
   rows.forEach((r, i) => {
-    const cat  = norm(r.category, '(uncategorized)');
-    const asgn = norm(r.assignee, '(unassigned)');
-    M[asgn][cat]  += comp[i].eff + comp[i].tax;
-    effByCat[cat] += comp[i].eff;
-    taxByCat[cat] += comp[i].tax;
+    const cat = norm(r.category, '(uncategorized)');
+    rowSplits(r).forEach((s, j) => {
+      const sc   = comp[i].splits[j];
+      const asgn = norm(s.assignee, '(unassigned)');
+      M[asgn][cat]  += sc.eff + sc.tax;
+      effByCat[cat] += sc.eff;
+      taxByCat[cat] += sc.tax;
+    });
   });
 
   const cats = catOrder.filter(c => (effByCat[c] + taxByCat[c]) > 1e-9);
@@ -1250,9 +1293,12 @@ function buildSummaryTable() {
 
   const asgnOrder = [], asgnSet = new Set(), asgnSub = {};
   rows.forEach((r, i) => {
-    const asgn = norm(r.assignee, '(unassigned)');
-    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); asgnSub[asgn] = 0; }
-    asgnSub[asgn] += comp[i].total;
+    rowSplits(r).forEach((s, j) => {
+      const sc   = comp[i].splits[j];
+      const asgn = norm(s.assignee, '(unassigned)');
+      if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); asgnSub[asgn] = 0; }
+      asgnSub[asgn] += sc.total;
+    });
   });
 
   const grandTotal = asgnOrder.reduce((s, a) => s + asgnSub[a], 0);
@@ -1326,14 +1372,19 @@ function restore() {
         if (isFinite(tr) && tr > 0) { taxed = true;  rateOverride = String(+(tr * 100).toFixed(4)); }
         else                        { taxed = false; rateOverride = ''; }
       }
+      const splits = Array.isArray(r.splits) && r.splits.length > 0
+        ? r.splits.map(s => ({
+            assignee: String(s.assignee ?? ''),
+            fraction: FRAC_OPTS.includes(s.fraction) ? s.fraction : '1'
+          }))
+        : [{ assignee: String(r.assignee ?? ''), fraction: FRAC_OPTS.includes(r.fraction) ? r.fraction : '1' }];
       return {
         amount:     String(r.amount ?? ''),
         taxed,
         rateOverride,
         payee:      String(r.payee ?? DEFAULT_PAYEES[0] ?? ''),
-        assignee:   String(r.assignee ?? ''),
         category:   String(r.category ?? ''),
-        fraction:   FRAC_OPTS.includes(r.fraction) ? r.fraction : '1',
+        splits,
         _collapsed: !!r._collapsed
       };
     });
@@ -1374,17 +1425,29 @@ function wireTwoClickBtn(btnId, defaultLabel, armedLabel, action) {
 const mainCards = document.getElementById('main-cards');
 
 function applyCell(el) {
-  const idx = parseInt(el.dataset.row, 10);
-  const col = el.dataset.col;
+  const idx  = parseInt(el.dataset.row, 10);
+  const col  = el.dataset.col;
   if (isNaN(idx) || !col || !rows[idx]) return false;
   const r = rows[idx];
+
+  if (el.dataset.split !== undefined) {
+    const j = parseInt(el.dataset.split, 10);
+    const splits = rowSplits(r);
+    if (isNaN(j) || !splits[j]) return false;
+    if (!r.splits) r.splits = splits;
+    switch (col) {
+      case 'assignee': r.splits[j].assignee = el.value; break;
+      case 'fraction': r.splits[j].fraction = el.value; break;
+      default: return false;
+    }
+    return true;
+  }
+
   switch (col) {
     case 'amount':       r.amount       = el.value;   break;
     case 'rateOverride': r.rateOverride = el.value;   break;
     case 'payee':        r.payee        = el.value;   break;
-    case 'assignee':     r.assignee     = el.value;   break;
     case 'category':     r.category     = el.value;   break;
-    case 'fraction':     r.fraction     = el.value;   break;
     case 'taxed':        r.taxed        = el.checked; break;
     default: return false;
   }
@@ -1403,7 +1466,6 @@ mainCards.addEventListener('input', e => {
 mainCards.addEventListener('change', e => {
   const el  = e.target;
   const col = el.dataset.col;
-  if (col !== 'taxed' && col !== 'fraction' && col !== 'payee' && col !== 'assignee' && col !== 'category') return;
   if (!applyCell(el)) return;
   if (col === 'taxed') {
     const ov = mainCards.querySelector(`[data-row="${el.dataset.row}"][data-col="rateOverride"]`);
@@ -1414,9 +1476,29 @@ mainCards.addEventListener('change', e => {
 
 mainCards.addEventListener('click', e => {
   const removeBtn = e.target.closest('[data-remove]');
-  if (removeBtn) {
+  if (removeBtn && !e.target.closest('[data-remove-split]')) {
     const idx = parseInt(removeBtn.dataset.remove, 10);
     if (!isNaN(idx)) { rows.splice(idx, 1); fullRender(); }
+    return;
+  }
+  const removeSplit = e.target.closest('[data-remove-split]');
+  if (removeSplit) {
+    const idx  = parseInt(removeSplit.dataset.removeSplit, 10);
+    const sidx = parseInt(removeSplit.dataset.split, 10);
+    if (!isNaN(idx) && !isNaN(sidx) && rows[idx]) {
+      const splits = rowSplits(rows[idx]);
+      if (splits.length > 1) { splits.splice(sidx, 1); rows[idx].splits = splits; fullRender(); }
+    }
+    return;
+  }
+  const addSplit = e.target.closest('[data-add-split]');
+  if (addSplit) {
+    const idx = parseInt(addSplit.dataset.addSplit, 10);
+    if (!isNaN(idx) && rows[idx]) {
+      if (!rows[idx].splits) rows[idx].splits = rowSplits(rows[idx]);
+      rows[idx].splits.push({ assignee: DEFAULT_PEOPLE[0] || '', fraction: '1' });
+      fullRender();
+    }
     return;
   }
   const hdr = e.target.closest('[data-toggle]');
@@ -1477,12 +1559,16 @@ function buildEmailData() {
   const aOrder = [], aSub = {};
   const cOrder = [], cEff = {}, cTax = {};
   rows.forEach((r, i) => {
-    const a = norm(r.assignee, '(unassigned)');
-    if (!(a in aSub)) { aSub[a] = 0; aOrder.push(a); }
-    aSub[a] += comp[i].total;
     const c = norm(r.category, '(uncategorized)');
     if (!(c in cEff)) { cEff[c] = 0; cTax[c] = 0; cOrder.push(c); }
-    cEff[c] += comp[i].eff; cTax[c] += comp[i].tax;
+    rowSplits(r).forEach((s, j) => {
+      const sc = comp[i].splits[j];
+      const a  = norm(s.assignee, '(unassigned)');
+      if (!(a in aSub)) { aSub[a] = 0; aOrder.push(a); }
+      aSub[a]  += sc.total;
+      cEff[c]  += sc.eff;
+      cTax[c]  += sc.tax;
+    });
   });
 
   const grand   = aOrder.reduce((s, a) => s + aSub[a], 0);
@@ -1639,9 +1725,11 @@ function buildPersonSummaryParts(person) {
 
   let pEff = 0, pTax = 0;
   rows.forEach((r, i) => {
-    if (norm(r.assignee, '(unassigned)') !== person) return;
-    pEff += comp[i].eff;
-    pTax += comp[i].tax;
+    rowSplits(r).forEach((s, j) => {
+      if (norm(s.assignee, '(unassigned)') !== person) return;
+      const sc = comp[i].splits[j];
+      pEff += sc.eff; pTax += sc.tax;
+    });
   });
   const pSub = pEff + pTax;
   const share = grandTotal > 1e-9 ? pSub / grandTotal : 0;
@@ -1651,11 +1739,13 @@ function buildPersonSummaryParts(person) {
 
   const catOrder = [], catSet = new Set(), catEff = {}, catTax = {};
   rows.forEach((r, i) => {
-    if (norm(r.assignee, '(unassigned)') !== person) return;
     const cat = norm(r.category, '(uncategorized)');
-    if (!catSet.has(cat)) { catSet.add(cat); catOrder.push(cat); catEff[cat] = 0; catTax[cat] = 0; }
-    catEff[cat] += comp[i].eff;
-    catTax[cat] += comp[i].tax;
+    rowSplits(r).forEach((s, j) => {
+      if (norm(s.assignee, '(unassigned)') !== person) return;
+      const sc = comp[i].splits[j];
+      if (!catSet.has(cat)) { catSet.add(cat); catOrder.push(cat); catEff[cat] = 0; catTax[cat] = 0; }
+      catEff[cat] += sc.eff; catTax[cat] += sc.tax;
+    });
   });
 
   return { person, pEff, pTax, pTip, pFee, pTot, catOrder, catEff, catTax, grandTotal, tipVal, feeVal };
@@ -1737,11 +1827,12 @@ document.getElementById('sum-tbody').addEventListener('click', e => {
   const btn = e.target.closest('#copy-all-btn');
   if (!btn) return;
 
-  const comp = rows.map(computeRow);
   const asgnOrder = [], asgnSet = new Set();
-  rows.forEach((r, i) => {
-    const asgn = norm(r.assignee, '(unassigned)');
-    if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); }
+  rows.forEach(r => {
+    rowSplits(r).forEach(s => {
+      const asgn = norm(s.assignee, '(unassigned)');
+      if (!asgnSet.has(asgn)) { asgnSet.add(asgn); asgnOrder.push(asgn); }
+    });
   });
 
   const text = asgnOrder.map(p => buildSinglePersonSummaryText(p)).join('\n\n');
@@ -2102,14 +2193,19 @@ function buildPersonYnabTransactions() {
 
   rows.forEach(r => {
     const comp  = _computeRow(r);
-    if (comp.total < 1e-9) return;
-    const person = (r.assignee || '').trim() || '(unassigned)';
-    const cat    = (r.category || '').trim() || '(uncategorized)';
-    const payee  = (r.payee    || '').trim() || 'Payee';
-    if (!personSet.has(person)) { personSet.add(person); personOrder.push(person); personData[person] = {}; }
-    if (!personData[person][cat]) personData[person][cat] = { eff: 0, tax: 0, payee };
-    personData[person][cat].eff += comp.eff;
-    personData[person][cat].tax += comp.tax;
+    const cat   = (r.category || '').trim() || '(uncategorized)';
+    const payee = (r.payee    || '').trim() || 'Payee';
+    const splits = Array.isArray(r.splits) && r.splits.length > 0
+      ? r.splits : [{ assignee: r.assignee || '', fraction: r.fraction || '1' }];
+    splits.forEach((s, j) => {
+      const sc     = comp.splits ? comp.splits[j] : comp;
+      if (!sc || sc.total < 1e-9) return;
+      const person = (s.assignee || '').trim() || '(unassigned)';
+      if (!personSet.has(person)) { personSet.add(person); personOrder.push(person); personData[person] = {}; }
+      if (!personData[person][cat]) personData[person][cat] = { eff: 0, tax: 0, payee };
+      personData[person][cat].eff += sc.eff;
+      personData[person][cat].tax += sc.tax;
+    });
   });
 
   if (personOrder.length === 0) return [];
@@ -2486,15 +2582,20 @@ function buildSwExpense() {
   const personEff = {}, personTax = {};
 
   rows.forEach(r => {
-    const comp = _computeRow(r);
-    if (comp.total < 1e-9) return;
-    const person = (r.assignee || '').trim() || '(unassigned)';
-    if (!personSet.has(person)) {
-      personSet.add(person); personOrder.push(person);
-      personEff[person] = 0; personTax[person] = 0;
-    }
-    personEff[person] += comp.eff;
-    personTax[person] += comp.tax;
+    const comp   = _computeRow(r);
+    const splits = Array.isArray(r.splits) && r.splits.length > 0
+      ? r.splits : [{ assignee: r.assignee || '', fraction: r.fraction || '1' }];
+    splits.forEach((s, j) => {
+      const sc     = comp.splits ? comp.splits[j] : comp;
+      if (!sc || sc.total < 1e-9) return;
+      const person = (s.assignee || '').trim() || '(unassigned)';
+      if (!personSet.has(person)) {
+        personSet.add(person); personOrder.push(person);
+        personEff[person] = 0; personTax[person] = 0;
+      }
+      personEff[person] += sc.eff;
+      personTax[person] += sc.tax;
+    });
   });
 
   if (personOrder.length === 0) return null;
@@ -2554,8 +2655,10 @@ function renderSwUserMap() {
   const names = [];
   const seen  = new Set();
   rows.forEach(r => {
-    const p = (r.assignee || '').trim() || '(unassigned)';
-    if (!seen.has(p)) { seen.add(p); names.push(p); }
+    (Array.isArray(r.splits) && r.splits.length > 0 ? r.splits : [{ assignee: r.assignee || '' }]).forEach(s => {
+      const p = (s.assignee || '').trim() || '(unassigned)';
+      if (!seen.has(p)) { seen.add(p); names.push(p); }
+    });
   });
 
   const container = document.getElementById('sw-user-map');
@@ -2892,7 +2995,11 @@ async function fetchSwFriends() {
 
 function swAutoMatch() {
   const rows  = JSON.parse(localStorage.getItem(_LS_KEY) || '{"rows":[]}').rows || [];
-  const names = [...new Set(rows.map(r => (r.assignee || '').trim()).filter(Boolean))];
+  const names = [...new Set(
+    rows.flatMap(r => (Array.isArray(r.splits) && r.splits.length > 0 ? r.splits : [{ assignee: r.assignee || '' }])
+      .map(s => (s.assignee || '').trim()))
+    .filter(Boolean)
+  )];
 
   names.forEach(name => {
     if (swUserMap[name] && swUserMap[name].userId) return; // already mapped
