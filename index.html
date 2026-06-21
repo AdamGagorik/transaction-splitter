@@ -1852,6 +1852,7 @@ fetch('config.json')
     if (cfg.ynabPurchaseAcct)   DEFAULT_YNAB.purchaseAcct  = cfg.ynabPurchaseAcct;
     if (cfg.ynabPayableAcct)    DEFAULT_YNAB.payableAcct   = cfg.ynabPayableAcct;
     if (cfg.ynabReceivableAcct) DEFAULT_YNAB.receivableAcct = cfg.ynabReceivableAcct;
+    if (cfg.splitwiseProxyUrl)  window._txnSplit.splitwiseProxyUrl = cfg.splitwiseProxyUrl;
   })
   .catch(() => { /* use hardcoded fallbacks */ })
   .finally(() => { bootstrap(); });
@@ -2316,8 +2317,9 @@ function getSwApiKey() {
 }
 
 function getSwBase() {
-  const proxy = document.getElementById('sw-proxy-url').value.trim().replace(/\/+$/, '');
-  return proxy || SW_API;
+  const manual  = document.getElementById('sw-proxy-url').value.trim().replace(/\/+$/, '');
+  const fromCfg = (window._txnSplit.splitwiseProxyUrl || '').replace(/\/+$/, '');
+  return manual || fromCfg || SW_API;
 }
 
 // Splitwise user ID per assignee name, persisted across sessions.

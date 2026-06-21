@@ -5,5 +5,6 @@
   "ynabBudgetName":       "2026",
   "ynabPurchaseAcct":     "Apple : Mastercard",
   "ynabPayableAcct":      "Payable",
-  "ynabReceivableAcct":   "Receivable"
+  "ynabReceivableAcct":   "Receivable",
+  "splitwiseProxyUrl":    ""
 }
