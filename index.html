@@ -2718,6 +2718,7 @@ async function fetchSwFriends() {
     const sorted  = friends.sort((a, b) =>
       (a.first_name + ' ' + (a.last_name || '')).localeCompare(b.first_name + ' ' + (b.last_name || '')));
     swFriends = self ? [self, ...sorted] : sorted;
+    swAutoMatch();
     if (statusEl) statusEl.textContent = swFriends.length + ' loaded';
     renderSwUserMap();
   } catch (err) {
@@ -2725,6 +2726,25 @@ async function fetchSwFriends() {
   } finally {
     if (btn) btn.disabled = false;
   }
+}
+
+/* ── Auto-match assignees to friends by first name ── */
+
+function swAutoMatch() {
+  const rows  = JSON.parse(localStorage.getItem(_LS_KEY) || '{"rows":[]}').rows || [];
+  const names = [...new Set(rows.map(r => (r.assignee || '').trim()).filter(Boolean))];
+
+  names.forEach(name => {
+    if (swUserMap[name] && swUserMap[name].userId) return; // already mapped
+    const needle   = name.toLowerCase();
+    const matches  = swFriends.filter(f => (f.first_name || '').toLowerCase() === needle);
+    if (matches.length === 1) {
+      if (!swUserMap[name]) swUserMap[name] = {};
+      swUserMap[name].userId = String(matches[0].id);
+    }
+  });
+
+  swSave();
 }
 
 /* ── Paste Friends JSON panel ── */
@@ -2759,6 +2779,7 @@ function swLoadFriendsFromJson() {
     if (!list) throw new Error('No "friends" array found in JSON.');
     swFriends = list.sort((a, b) =>
       (a.first_name + ' ' + (a.last_name || '')).localeCompare(b.first_name + ' ' + (b.last_name || '')));
+    swAutoMatch();
     if (statusEl) statusEl.textContent = swFriends.length + ' friend' + (swFriends.length === 1 ? '' : 's') + ' loaded';
     swClosePastePanel();
     renderSwUserMap();
