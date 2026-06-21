@@ -164,10 +164,8 @@ select:focus {
 .memo-input:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
 .combo-list {
   display: none;
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  z-index: 600;
+  position: fixed;
+  z-index: 9999;
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
@@ -176,7 +174,6 @@ select:focus {
   list-style: none;
   margin: 0;
   padding: 3px 0;
-  min-width: 100%;
   box-shadow: 0 6px 16px rgba(0,0,0,.1);
   -webkit-overflow-scrolling: touch;
 }
@@ -282,7 +279,6 @@ select:focus {
   border: 1px solid #e2e8f0;
   border-radius: 8px;
   margin-bottom: 8px;
-  position: relative;
 }
 .row-card-hdr {
   display: flex;
@@ -1066,17 +1062,26 @@ function attachCombo(input, options) {
   const wrap = input.closest('.combo-wrap');
   const list = wrap && wrap.querySelector('.combo-list');
   if (!list) return;
-  const card = input.closest('.row-card');
 
-  function openList() { if (card) card.style.zIndex = '10'; }
-  function closeList() { list.style.display = 'none'; if (card) card.style.zIndex = ''; }
+  function openList() {
+    const rect = input.getBoundingClientRect();
+    list.style.top   = (rect.bottom + 2) + 'px';
+    list.style.left  = rect.left + 'px';
+    list.style.width = Math.max(rect.width, 120) + 'px';
+    if (list.parentElement !== document.body) document.body.appendChild(list);
+    list.style.display = 'block';
+  }
+
+  function closeList() {
+    list.style.display = 'none';
+    if (list.parentElement === document.body) wrap.appendChild(list);
+  }
 
   function render(filter) {
     const f = (filter || '').toLowerCase().trim();
     const hits = f ? options.filter(o => o.toLowerCase().includes(f)) : options;
     if (!hits.length) { closeList(); return; }
     list.innerHTML = hits.map(o => `<li data-val="${esc(o)}">${esc(o)}</li>`).join('');
-    list.style.display = 'block';
     openList();
   }
 
