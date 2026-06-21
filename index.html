@@ -776,8 +776,14 @@ select.asgn-sel, select.cat-sel, select.payee-sel { width: 132px; }
     <label for="sw-currency">Currency</label>
     <input type="text" id="sw-currency" placeholder="USD" value="USD" style="width:80px">
 
-    <label for="sw-group-id">Group ID</label>
-    <input type="text" id="sw-group-id" placeholder="Optional — numeric group ID" inputmode="numeric">
+    <label>Group</label>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <input type="text" id="sw-group-id" placeholder="Optional — numeric group ID" inputmode="numeric" style="flex:1;min-width:0">
+      <button id="sw-fetch-groups-btn" class="btn-secondary" style="font-size:12px;padding:5px 10px;white-space:nowrap">Fetch Groups</button>
+      <span id="sw-groups-status" style="font-size:12px;color:#64748b"></span>
+    </div>
+    <span></span><!-- grid spacer -->
+    <div id="sw-group-select-wrap" style="display:none"></div>
 
     <label for="sw-payer">Payer</label>
     <select id="sw-payer" style="width:200px">
@@ -2366,6 +2372,7 @@ function getSwBase() {
 let swUserMap = {}; // { [assignee]: { userId: '' } }
 let swPayer   = ''; // name of the paying assignee
 let swFriends = []; // cached GET /get_friends response, in-memory only
+let swGroups  = []; // cached GET /get_groups response, in-memory only
 
 /* ── Persist / restore ── */
 
@@ -2843,6 +2850,55 @@ function swAutoMatch() {
   swSave();
 }
 
+/* ── Fetch Splitwise groups ── */
+
+function renderSwGroupSelect() {
+  const wrap   = document.getElementById('sw-group-select-wrap');
+  const input  = document.getElementById('sw-group-id');
+  if (!wrap) return;
+  if (swGroups.length === 0) { wrap.style.display = 'none'; wrap.innerHTML = ''; return; }
+
+  const current = input ? input.value.trim() : '';
+  const opts = swGroups.map(g =>
+    `<option value="${g.id}"${String(g.id) === current ? ' selected' : ''}>${escHtml(g.name)} (${g.id})</option>`
+  ).join('');
+
+  wrap.style.display = '';
+  wrap.innerHTML = `<select id="sw-group-select" style="width:100%">
+    <option value="">— no group —</option>
+    ${opts}
+  </select>`;
+
+  wrap.querySelector('#sw-group-select').addEventListener('change', e => {
+    if (input) { input.value = e.target.value; input.dispatchEvent(new Event('input')); }
+  });
+}
+
+async function fetchSwGroups() {
+  const apiKey   = getSwApiKey();
+  const base     = getSwBase();
+  const statusEl = document.getElementById('sw-groups-status');
+  const btn      = document.getElementById('sw-fetch-groups-btn');
+  if (!apiKey) { if (statusEl) statusEl.textContent = 'Enter API key first.'; return; }
+  if (base === SW_API) { if (statusEl) statusEl.textContent = 'Set a Proxy URL first.'; return; }
+  if (btn) btn.disabled = true;
+  if (statusEl) statusEl.textContent = 'Fetching…';
+  try {
+    const res  = await fetch(base + '/get_groups', { headers: { 'Authorization': 'Bearer ' + apiKey } });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.status);
+    swGroups = (data.groups || [])
+      .filter(g => g.id !== 0)
+      .sort((a, b) => a.name.localeCompare(b.name));
+    if (statusEl) statusEl.textContent = swGroups.length + ' loaded';
+    renderSwGroupSelect();
+  } catch (err) {
+    if (statusEl) statusEl.textContent = 'Error: ' + err.message;
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
 /* ── Wire settings inputs ── */
 
 function swRefresh() { renderSwUserMap(); renderSwPane(); swSave(); }
@@ -2870,6 +2926,8 @@ renderSwUserMap();
 renderSwPane();
 const _swFetchBtn        = document.getElementById('sw-fetch-friends-btn');
 const _swClearFriendsBtn = document.getElementById('sw-clear-friends-btn');
+const _swFetchGroupsBtn  = document.getElementById('sw-fetch-groups-btn');
+if (_swFetchGroupsBtn) _swFetchGroupsBtn.addEventListener('click', fetchSwGroups);
 if (_swFetchBtn)  _swFetchBtn.addEventListener('click', fetchSwFriends);
 if (_swClearFriendsBtn) _swClearFriendsBtn.addEventListener('click', () => {
   swFriends = [];
