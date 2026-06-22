@@ -588,6 +588,7 @@ swRestore();
 document.getElementById('sw-date').value = todayISO();
 renderSwUserMap();
 renderSwPane();
+window._txnSplit.refreshHooks.push(() => { renderSwUserMap(); renderSwPane(); });
 const _swFetchBtn        = document.getElementById('sw-fetch-friends-btn');
 const _swClearFriendsBtn = document.getElementById('sw-clear-friends-btn');
 const _swFetchGroupsBtn  = document.getElementById('sw-fetch-groups-btn');

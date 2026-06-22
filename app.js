@@ -155,6 +155,7 @@ function fullRender() {
   buildCategoryTable();
   buildSummaryTable();
   persist();
+  (window._txnSplit?.refreshHooks ?? []).forEach(fn => fn());
 }
 
 /* ── Partial update ────────────────────────────────────────────────── */
@@ -506,7 +507,6 @@ function buildCategoryTable() {
 
   const grandTot = cats.reduce((s, c) => s + effByCat[c] + taxByCat[c], 0);
   const effCents = reconcileCents(cats.map(c => effByCat[c]), cats.reduce((s, c) => s + effByCat[c], 0), 'eff');
-  const taxCents = reconcileCents(cats.map(c => taxByCat[c]), cats.reduce((s, c) => s + taxByCat[c], 0), 'tax');
   const tipExact = cats.map(c => grandTot > 1e-9 ? (effByCat[c] + taxByCat[c]) / grandTot * tipVal : 0);
   const feeExact = cats.map(c => grandTot > 1e-9 ? (effByCat[c] + taxByCat[c]) / grandTot * feeVal : 0);
   const tipCents = reconcileCents(tipExact, grandTot > 1e-9 ? tipVal : 0, 'tip');
@@ -550,8 +550,8 @@ function buildCategoryTable() {
   let g = '';
   cats.forEach((c, i) => {
     const subC   = effCents[i];
-    const txC    = taxCents[i];
     const totC   = catTotC[c];  // use matrix-reconciled total so both views agree
+    const txC    = totC - subC; // derive from totC so Subtotal + Tax = Total exactly
     const tpC    = tipCents[i];
     const feC    = feeCents[i];
     const finalC = totC + tpC + feC;
@@ -605,7 +605,6 @@ function buildSummaryTable() {
   const feeCents = reconcileCents(feeExact, grandTotal > 1e-9 ? feeVal : 0, 'sum-fee');
 
   let html = '';
-  let sumSub = 0, sumTip = 0, sumFee = 0, sumFinal = 0;
 
   asgnOrder.forEach((asgn, idx) => {
     const sub   = asgnSub[asgn];
@@ -613,10 +612,6 @@ function buildSummaryTable() {
     const tip   = tipCents[idx] / 100;
     const fee   = feeCents[idx] / 100;
     const final = sub + tip + fee;
-    sumSub   += sub;
-    sumTip   += tip;
-    sumFee   += fee;
-    sumFinal += final;
     html += `<tr>
       <td class="td-left">${esc(asgn)}</td>
       <td class="computed" style="white-space:nowrap">${fmt(sub)}</td>
@@ -631,11 +626,11 @@ function buildSummaryTable() {
   const shareTotPct = grandTotal > 1e-9 ? '100.0%' : '0.0%';
   html += `<tr class="totals-row">
     <td class="td-left">TOTAL</td>
-    <td class="computed" style="white-space:nowrap">${fmt(sumSub)}</td>
+    <td class="computed" style="white-space:nowrap">${fmt(grandTotal)}</td>
     <td class="computed" style="white-space:nowrap">${shareTotPct}</td>
-    <td class="computed" style="white-space:nowrap">${fmt(sumTip)}</td>
-    <td class="computed" style="white-space:nowrap">${fmt(sumFee)}</td>
-    <td class="computed" style="white-space:nowrap">${fmt(sumFinal)}</td>
+    <td class="computed" style="white-space:nowrap">${fmt(tipVal)}</td>
+    <td class="computed" style="white-space:nowrap">${fmt(feeVal)}</td>
+    <td class="computed" style="white-space:nowrap">${fmt(grandTotal + tipVal + feeVal)}</td>
     <td class="td-center" style="white-space:nowrap"><button class="btn-secondary" style="font-size:11px;padding:3px 9px" id="copy-all-btn">Copy</button></td>
   </tr>`;
 
@@ -833,7 +828,7 @@ mainCards.addEventListener('click', e => {
 document.getElementById('add-row-btn').addEventListener('click', () => {
   const prev = rows.length ? rows[rows.length - 1] : null;
   const row  = prev
-    ? { ...prev, amount: '', rateOverride: '', splits: rowSplits(prev).map(s => ({ ...s })) }
+    ? { ...prev, amount: '', rateOverride: '', _collapsed: false, splits: rowSplits(prev).map(s => ({ ...s })) }
     : newRow();
   rows.push(row);
   fullRender();
@@ -1063,9 +1058,9 @@ function buildPersonSummaryParts(person) {
 
 function fmtComponents(eff, tax, tip, fee) {
   const parts = [fmt(eff)];
-  if (tax > 0.001) parts.push(fmt(tax));
-  if (tip > 0.001) parts.push(fmt(tip));
-  if (fee > 0.001) parts.push(fmt(fee));
+  if (Math.round(tax * 100) > 0) parts.push(fmt(tax));
+  if (Math.round(tip * 100) > 0) parts.push(fmt(tip));
+  if (Math.round(fee * 100) > 0) parts.push(fmt(fee));
   return parts.join(' + ');
 }
 
@@ -1209,9 +1204,9 @@ async function ynabLookupPlan() {
   if (!apiKey)     throw new Error('Enter your YNAB API Key on the Setup tab first.');
   if (!budgetName) throw new Error('Enter your Budget Name on the YNAB tab first.');
   const headers  = { 'Authorization': 'Bearer ' + apiKey };
-  const res      = await fetch('https://api.ynab.com/v1/plans', { headers });
+  const res      = await fetch('https://api.ynab.com/v1/budgets', { headers });
   if (!res.ok) throw new Error('API error ' + res.status);
-  const plans    = (await res.json()).data.plans || [];
+  const plans    = (await res.json()).data.budgets || [];
   const plan     = plans.find(p => p.name === budgetName);
   if (!plan) throw new Error(`Budget "${budgetName}" not found`);
   return { plan, headers };
@@ -1237,7 +1232,7 @@ function wireYnabFetchBtn(btnId, fetchLabel, handler) {
 }
 
 wireYnabFetchBtn('category-fetch-btn', 'Fetch from YNAB', async (plan, headers) => {
-  const res    = await fetch(`https://api.ynab.com/v1/plans/${plan.id}/categories`, { headers });
+  const res    = await fetch(`https://api.ynab.com/v1/budgets/${plan.id}/categories`, { headers });
   if (!res.ok) throw new Error('API error ' + res.status);
   const groups = (await res.json()).data.category_groups || [];
   const fetched = [];
@@ -1254,7 +1249,7 @@ wireYnabFetchBtn('category-fetch-btn', 'Fetch from YNAB', async (plan, headers) 
 });
 
 wireYnabFetchBtn('payee-fetch-btn', 'Fetch from YNAB', async (plan, headers) => {
-  const res     = await fetch(`https://api.ynab.com/v1/plans/${plan.id}/payees`, { headers });
+  const res     = await fetch(`https://api.ynab.com/v1/budgets/${plan.id}/payees`, { headers });
   if (!res.ok) throw new Error('API error ' + res.status);
   const ynabPayees = (await res.json()).data.payees || [];
   const fetched = ynabPayees
@@ -1377,6 +1372,6 @@ function addToPayees(names) {
   buildMainTable();
   persist();
 }
-window._txnSplit = { computeRow, esc, LS_KEY, addToPayees, reconcileCents };
+window._txnSplit = { computeRow, esc, LS_KEY, addToPayees, reconcileCents, refreshHooks: [] };
 
 })();
