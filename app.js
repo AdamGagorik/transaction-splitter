@@ -135,8 +135,11 @@ function rowRate(r) {
 function computeRow(r) {
   const amount = parseFloat(r.amount) || 0;
   const rate   = rowRate(r);
-  const splits = rowSplits(r).map(s => {
-    const frac  = FRAC_VAL[s.fraction] ?? 1;
+  const rawSplits = rowSplits(r);
+  const rawWeights = rawSplits.map(s => FRAC_VAL[s.fraction] ?? 1);
+  const weightSum  = rawWeights.reduce((a, b) => a + b, 0) || 1;
+  const splits = rawSplits.map((s, i) => {
+    const frac  = rawWeights[i] / weightSum;
     const eff   = amount * frac;
     const tax   = rate * eff;
     const total = eff + tax;
