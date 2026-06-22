@@ -145,7 +145,7 @@ function buildSwPayload(expData) {
     payload[`users__${i}__paid_share`] = (p.name === payer ? cost : 0).toFixed(2);
     payload[`users__${i}__owed_share`] = (p.totalCents / 100).toFixed(2);
   });
-  if (groupId) payload.group_id = parseInt(groupId, 10) || groupId;
+  payload.group_id = groupId ? (parseInt(groupId, 10) || groupId) : 0;
   return payload;
 }
 

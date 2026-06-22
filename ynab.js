@@ -346,15 +346,15 @@ async function submitToYnab(idx) {
   statusEl.textContent = 'Looking up budget…';
 
   try {
-    const plansRes = await fetch(YNAB_API + '/budgets', { headers });
+    const plansRes = await fetch(YNAB_API + '/plans', { headers });
     if (!plansRes.ok) throw new Error('Failed to fetch budgets: ' + plansRes.status + ' ' + await plansRes.text());
     const plansData = await plansRes.json();
-    const plans = plansData.data.budgets || [];
+    const plans = plansData.data.plans || [];
     const plan = plans.find(p => p.name === budgetName);
     if (!plan) throw new Error(`Budget "${budgetName}" not found. Available: ${plans.map(p => p.name).join(', ')}`);
 
     statusEl.textContent = 'Looking up account…';
-    const acctRes = await fetch(`${YNAB_API}/budgets/${plan.id}/accounts`, { headers });
+    const acctRes = await fetch(`${YNAB_API}/plans/${plan.id}/accounts`, { headers });
     if (!acctRes.ok) throw new Error('Failed to fetch accounts: ' + acctRes.status + ' ' + await acctRes.text());
     const acctData = await acctRes.json();
     const accounts = acctData.data.accounts || [];
@@ -362,7 +362,7 @@ async function submitToYnab(idx) {
     if (!account) throw new Error(`Account "${acctName}" not found. Available: ${accounts.map(a => a.name).join(', ')}`);
 
     statusEl.textContent = 'Looking up categories…';
-    const catsRes = await fetch(`${YNAB_API}/budgets/${plan.id}/categories`, { headers });
+    const catsRes = await fetch(`${YNAB_API}/plans/${plan.id}/categories`, { headers });
     if (!catsRes.ok) throw new Error('Failed to fetch categories: ' + catsRes.status + ' ' + await catsRes.text());
     const catsData = await catsRes.json();
     const categoryMap = {};
@@ -390,7 +390,7 @@ async function submitToYnab(idx) {
     }
 
     statusEl.textContent = 'Submitting transaction…';
-    const txnRes  = await fetch(`${YNAB_API}/budgets/${plan.id}/transactions`, {
+    const txnRes  = await fetch(`${YNAB_API}/plans/${plan.id}/transactions`, {
       method: 'POST',
       headers,
       body: JSON.stringify(payload)
