@@ -587,30 +587,35 @@ function buildCategoryTable() {
     const feeTot = feeCents[i];
     const sumTot = totTot + tipTot + feeTot;
 
-    // Cat row (underlined, collapsible toggle)
-    body += `<tr class="cat-head-row" data-cat-toggle="${i}"><td class="td-left cat-name-label">${esc(c)}</td>`;
-    asgnOrder.forEach(a => { body += cell(ReffC[a][c]); asgnEffC[a] += ReffC[a][c]; });
-    body += cellS(effTot) + '</tr>';
+    // Cat Σ row — shows sum, collapses detail rows
+    body += `<tr class="cat-head-row" data-cat-toggle="${i}"><td class="td-left cat-name-label">${esc(c)} <span class="cat-sigma">Σ</span></td>`;
+    asgnOrder.forEach(a => {
+      const aSum = RtotC[a][c] + RtipC[a][c] + RfeeC[a][c];
+      body += cellS(aSum);
+      asgnEffC[a] += ReffC[a][c]; asgnTotC[a] += RtotC[a][c];
+      asgnTipC[a] += RtipC[a][c]; asgnFeeC[a] += RfeeC[a][c];
+    });
+    body += cellS(sumTot) + '</tr>';
+
+    // Subtotal row
+    body += `<tr data-cat-body="${i}"><td class="td-left cat-sub-label">Subtotal</td>`;
+    asgnOrder.forEach(a => { body += cell(ReffC[a][c]); });
+    body += cell(effTot) + '</tr>';
 
     // Tax row
     body += `<tr data-cat-body="${i}"><td class="td-left cat-sub-label">Tax</td>`;
-    asgnOrder.forEach(a => { body += cell(RtotC[a][c] - ReffC[a][c]); asgnTotC[a] += RtotC[a][c]; });
-    body += cellS(taxTot) + '</tr>';
+    asgnOrder.forEach(a => { body += cell(RtotC[a][c] - ReffC[a][c]); });
+    body += cell(taxTot) + '</tr>';
 
     // Tip row
     body += `<tr data-cat-body="${i}"><td class="td-left cat-sub-label">Tip</td>`;
-    asgnOrder.forEach(a => { body += cell(RtipC[a][c]); asgnTipC[a] += RtipC[a][c]; });
-    body += cellS(tipTot) + '</tr>';
+    asgnOrder.forEach(a => { body += cell(RtipC[a][c]); });
+    body += cell(tipTot) + '</tr>';
 
     // Fee row
     body += `<tr data-cat-body="${i}"><td class="td-left cat-sub-label">Fee</td>`;
-    asgnOrder.forEach(a => { body += cell(RfeeC[a][c]); asgnFeeC[a] += RfeeC[a][c]; });
-    body += cellS(feeTot) + '</tr>';
-
-    // Sum row (bold)
-    body += `<tr class="cat-sum-row" data-cat-body="${i}"><td class="td-left cat-sum-label">Sum</td>`;
-    asgnOrder.forEach(a => { body += cellS(RtotC[a][c] + RtipC[a][c] + RfeeC[a][c]); });
-    body += cellS(sumTot) + '</tr>';
+    asgnOrder.forEach(a => { body += cell(RfeeC[a][c]); });
+    body += cell(feeTot) + '</tr>';
 
     if (i < cats.length - 1) body += sep();
   });
@@ -625,25 +630,25 @@ function buildCategoryTable() {
 
   body += sep();
 
-  body += `<tr class="cat-grand-row cat-grand-start"><td class="td-left cat-name-label">Total</td>`;
-  asgnOrder.forEach(a => { body += cellS(asgnEffC[a]); });
-  body += cellS(gEffC) + '</tr>';
+  body += `<tr class="cat-grand-row cat-grand-start"><td class="td-left cat-name-label">Total <span class="cat-sigma">Σ</span></td>`;
+  asgnOrder.forEach(a => { body += cellS(asgnTotC[a] + asgnTipC[a] + asgnFeeC[a]); });
+  body += cellS(gSumC) + '</tr>';
+
+  body += `<tr class="cat-grand-row"><td class="td-left cat-sub-label">Subtotal</td>`;
+  asgnOrder.forEach(a => { body += cell(asgnEffC[a]); });
+  body += cell(gEffC) + '</tr>';
 
   body += `<tr class="cat-grand-row"><td class="td-left cat-sub-label">Tax</td>`;
   asgnOrder.forEach(a => { body += cell(asgnTotC[a] - asgnEffC[a]); });
-  body += cellS(gTaxC) + '</tr>';
+  body += cell(gTaxC) + '</tr>';
 
   body += `<tr class="cat-grand-row"><td class="td-left cat-sub-label">Tip</td>`;
   asgnOrder.forEach(a => { body += cell(asgnTipC[a]); });
-  body += cellS(gTipC) + '</tr>';
+  body += cell(gTipC) + '</tr>';
 
   body += `<tr class="cat-grand-row"><td class="td-left cat-sub-label">Fee</td>`;
   asgnOrder.forEach(a => { body += cell(asgnFeeC[a]); });
-  body += cellS(gFeeC) + '</tr>';
-
-  body += `<tr class="cat-grand-row cat-grand-sum"><td class="td-left cat-sum-label">Sum</td>`;
-  asgnOrder.forEach(a => { body += cellS(asgnTotC[a] + asgnTipC[a] + asgnFeeC[a]); });
-  body += cellS(gSumC) + '</tr>';
+  body += cell(gFeeC) + '</tr>';
 
   document.getElementById('cat-matrix-tbody').innerHTML = body;
 
