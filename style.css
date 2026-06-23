@@ -82,6 +82,8 @@ tr.totals-row td {
 tr.totals-row td.computed { background: #e8edff; }
 
 /* Category matrix sub-rows */
+#cat-matrix-table th.th-left,
+#cat-matrix-table td.td-left { width: 1%; white-space: nowrap; }
 tr.cat-separator td   { padding: 0; height: 8px; background: transparent; border: none; }
 td.cat-name-label     { font-weight: 700; }
 td.cat-name-label::before { content: '▾ '; font-size: 10px; color: #94a3b8; font-weight: 400; display: inline-block; }
