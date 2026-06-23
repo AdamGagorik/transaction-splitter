@@ -957,6 +957,39 @@ document.getElementById('fee-input').addEventListener('input', onTipFee);
 /* ── Export ── */
 document.getElementById('pdf-btn').addEventListener('click', () => { window.print(); });
 
+document.getElementById('csv-btn').addEventListener('click', () => {
+  const comp = rows.map(computeRow);
+  const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+  const lines = ['Amount,Payee,Category,Memo,Taxed,Tax Rate,Assignee,Fraction,Subtotal,Tax,Total'];
+  rows.forEach((r, i) => {
+    const rate = rowRate(r) * 100;
+    rowSplits(r).forEach((s, j) => {
+      const sc = comp[i].splits[j];
+      lines.push([
+        q(r.amount),
+        q(norm(r.payee, '')),
+        q(norm(r.category, '')),
+        q(norm(r.memo, '')),
+        r.taxed ? 'Yes' : 'No',
+        r.taxed ? rate.toFixed(2) + '%' : '',
+        q(norm(s.assignee, '(unassigned)')),
+        q(s.fraction),
+        sc.eff.toFixed(2),
+        sc.tax.toFixed(2),
+        sc.total.toFixed(2),
+      ].join(','));
+    });
+  });
+  const blob = new Blob([lines.join('\r\n')], { type: 'text/csv' });
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(blob),
+    download: 'transactions.csv',
+  });
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+});
+
 /* ── Per-person clipboard copy ── */
 
 function buildEmailData() {
