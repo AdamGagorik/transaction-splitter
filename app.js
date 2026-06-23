@@ -587,28 +587,28 @@ function buildCategoryTable() {
     const feeTot = feeCents[i];
     const sumTot = totTot + tipTot + feeTot;
 
-    // Cat row (underlined)
-    body += `<tr><td class="td-left cat-name-label">${esc(c)}</td>`;
+    // Cat row (underlined, collapsible toggle)
+    body += `<tr class="cat-head-row" data-cat-toggle="${i}"><td class="td-left cat-name-label">${esc(c)}</td>`;
     asgnOrder.forEach(a => { body += cell(ReffC[a][c]); asgnEffC[a] += ReffC[a][c]; });
     body += cellS(effTot) + '</tr>';
 
     // Tax row
-    body += `<tr><td class="td-left cat-sub-label">Tax</td>`;
+    body += `<tr data-cat-body="${i}"><td class="td-left cat-sub-label">Tax</td>`;
     asgnOrder.forEach(a => { body += cell(RtotC[a][c] - ReffC[a][c]); asgnTotC[a] += RtotC[a][c]; });
     body += cellS(taxTot) + '</tr>';
 
     // Tip row
-    body += `<tr><td class="td-left cat-sub-label">Tip</td>`;
+    body += `<tr data-cat-body="${i}"><td class="td-left cat-sub-label">Tip</td>`;
     asgnOrder.forEach(a => { body += cell(RtipC[a][c]); asgnTipC[a] += RtipC[a][c]; });
     body += cellS(tipTot) + '</tr>';
 
     // Fee row
-    body += `<tr><td class="td-left cat-sub-label">Fee</td>`;
+    body += `<tr data-cat-body="${i}"><td class="td-left cat-sub-label">Fee</td>`;
     asgnOrder.forEach(a => { body += cell(RfeeC[a][c]); asgnFeeC[a] += RfeeC[a][c]; });
     body += cellS(feeTot) + '</tr>';
 
     // Sum row (bold)
-    body += `<tr class="cat-sum-row"><td class="td-left cat-sum-label">Sum</td>`;
+    body += `<tr class="cat-sum-row" data-cat-body="${i}"><td class="td-left cat-sum-label">Sum</td>`;
     asgnOrder.forEach(a => { body += cellS(RtotC[a][c] + RtipC[a][c] + RfeeC[a][c]); });
     body += cellS(sumTot) + '</tr>';
 
@@ -625,23 +625,23 @@ function buildCategoryTable() {
 
   body += sep();
 
-  body += `<tr class="totals-row"><td class="td-left">Total</td>`;
+  body += `<tr class="cat-grand-row cat-grand-start"><td class="td-left cat-name-label">Total</td>`;
   asgnOrder.forEach(a => { body += cellS(asgnEffC[a]); });
   body += cellS(gEffC) + '</tr>';
 
-  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Tax</td>`;
+  body += `<tr class="cat-grand-row"><td class="td-left cat-sub-label">Tax</td>`;
   asgnOrder.forEach(a => { body += cell(asgnTotC[a] - asgnEffC[a]); });
   body += cellS(gTaxC) + '</tr>';
 
-  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Tip</td>`;
+  body += `<tr class="cat-grand-row"><td class="td-left cat-sub-label">Tip</td>`;
   asgnOrder.forEach(a => { body += cell(asgnTipC[a]); });
   body += cellS(gTipC) + '</tr>';
 
-  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Fee</td>`;
+  body += `<tr class="cat-grand-row"><td class="td-left cat-sub-label">Fee</td>`;
   asgnOrder.forEach(a => { body += cell(asgnFeeC[a]); });
   body += cellS(gFeeC) + '</tr>';
 
-  body += `<tr class="totals-row cat-grand-sum"><td class="td-left">Sum</td>`;
+  body += `<tr class="cat-grand-row cat-grand-sum"><td class="td-left cat-sum-label">Sum</td>`;
   asgnOrder.forEach(a => { body += cellS(asgnTotC[a] + asgnTipC[a] + asgnFeeC[a]); });
   body += cellS(gSumC) + '</tr>';
 
@@ -927,6 +927,16 @@ mainCards.addEventListener('click', e => {
     if (toggle) toggle.textContent = rows[idx]._collapsed ? '▶' : '▼';
     persist();
   }
+});
+
+document.getElementById('cat-matrix-tbody').addEventListener('click', e => {
+  const row = e.target.closest('tr[data-cat-toggle]');
+  if (!row) return;
+  const idx = row.dataset.catToggle;
+  const collapsed = row.classList.toggle('cat-collapsed');
+  document.querySelectorAll(`#cat-matrix-tbody tr[data-cat-body="${idx}"]`).forEach(r => {
+    r.style.display = collapsed ? 'none' : '';
+  });
 });
 
 document.getElementById('add-row-btn').addEventListener('click', () => {
