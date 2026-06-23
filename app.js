@@ -652,29 +652,6 @@ function buildCategoryTable() {
 
   document.getElementById('cat-matrix-tbody').innerHTML = body;
 
-  // Grouped view (unchanged)
-  const effCents = reconcileCents(cats.map(c => effByCat[c]), cats.reduce((s, c) => s + effByCat[c], 0), 'eff');
-  const idxOf = {}; cats.forEach((c, i) => { idxOf[c] = i; });
-  const line = (label, cents) => `<div class="grp-line"><span>${label}</span><span>${fmtC(cents)}</span></div>`;
-  let g = '';
-  cats.forEach((c, i) => {
-    const subC   = effCents[i];
-    const totC   = asgnOrder.reduce((s, a) => s + RtotC[a][c], 0);
-    const txC    = totC - subC;
-    const tpC    = tipCents[i];
-    const feC    = feeCents[i];
-    const finalC = totC + tpC + feC;
-    g += `<div class="grp">
-      <div class="grp-head"><span>${esc(c)}</span><span>${fmtC(finalC)}</span></div>
-      ${line('Subtotal', subC)}
-      ${line('Tax', txC)}
-      ${line('Total', totC)}
-      ${line('Tip', tpC)}
-      ${line('Fee', feC)}
-    </div>`;
-  });
-  document.getElementById('cat-grouped').innerHTML = g;
-
   emptyEl.style.display = 'none';
   contentEl.style.display = '';
 }
@@ -1416,15 +1393,6 @@ wireTwoClickBtn('clear-storage-btn', 'Clear Local Storage', 'Click again to conf
   document.getElementById('sw-currency').value          = 'USD';
   document.getElementById('sw-group-id').value          = '';
   fullRender();
-});
-
-document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const tab = btn.dataset.tab;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.getElementById('cat-view-matrix').style.display  = tab === 'matrix'  ? '' : 'none';
-    document.getElementById('cat-view-grouped').style.display = tab === 'grouped' ? '' : 'none';
-  });
 });
 
 /* ── Main tab switching ── */

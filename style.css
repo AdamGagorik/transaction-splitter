@@ -592,7 +592,7 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
   #main-tab-splitwise { display: none  !important; }
   #main-tab-readme    { display: none  !important; }
   .main-tabs       { display: none  !important; }
-  #cat-view-grouped, #cat-view-matrix { display: block !important; }
+  #cat-view-matrix { display: block !important; }
   .overflow-x { overflow: visible !important; }
   table { font-size: 9px !important; width: 100% !important; table-layout: fixed; }
   thead th, tbody td {
