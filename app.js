@@ -834,7 +834,7 @@ mainCards.addEventListener('click', e => {
     if (!isNaN(idx) && rows[idx]) {
       if (!rows[idx].splits) rows[idx].splits = rowSplits(rows[idx]);
       applyEqualFractions(rows[idx].splits);
-      rebuildCardSplits(idx);
+      fullRender();
     }
     return;
   }
