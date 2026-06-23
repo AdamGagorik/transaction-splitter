@@ -506,16 +506,18 @@ function buildCategoryTable() {
     });
   });
 
-  const M = {};
-  asgnOrder.forEach(a => { M[a] = {}; catOrder.forEach(c => { M[a][c] = 0; }); });
+  // Track eff and tax separately per (asgn, cat)
+  const Meff = {}, Mtax = {};
+  asgnOrder.forEach(a => { Meff[a] = {}; Mtax[a] = {}; catOrder.forEach(c => { Meff[a][c] = 0; Mtax[a][c] = 0; }); });
   rows.forEach((r, i) => {
     const cat = norm(r.category, '(uncategorized)');
     rowSplits(r).forEach((s, j) => {
       const sc   = comp[i].splits[j];
       const asgn = norm(s.assignee, '(unassigned)');
-      M[asgn][cat]  += sc.eff + sc.tax;
-      effByCat[cat] += sc.eff;
-      taxByCat[cat] += sc.tax;
+      Meff[asgn][cat] += sc.eff;
+      Mtax[asgn][cat] += sc.tax;
+      effByCat[cat]   += sc.eff;
+      taxByCat[cat]   += sc.tax;
     });
   });
 
@@ -528,62 +530,120 @@ function buildCategoryTable() {
   }
 
   const fmtC = cents => '$' + (cents / 100).toFixed(2);
+  const ncols = asgnOrder.length + 2; // label + assignees + total
 
-  const R = {}; asgnOrder.forEach(a => { R[a] = {}; });
+  // Reconcile per-(asgn, cat) eff and total (eff+tax) cents
+  const ReffC = {}, RtotC = {};
+  asgnOrder.forEach(a => { ReffC[a] = {}; RtotC[a] = {}; });
   cats.forEach(c => {
-    const vals = asgnOrder.map(a => M[a][c]);
-    const exactTot = vals.reduce((s, v) => s + v, 0);
-    const cents = reconcileCents(vals, exactTot, 'cat:' + c);
-    asgnOrder.forEach((a, i) => { R[a][c] = cents[i]; });
+    const effVals = asgnOrder.map(a => Meff[a][c]);
+    const totVals = asgnOrder.map(a => Meff[a][c] + Mtax[a][c]);
+    const effR = reconcileCents(effVals, effByCat[c], 'eff:' + c);
+    const totR = reconcileCents(totVals, effByCat[c] + taxByCat[c], 'tot:' + c);
+    asgnOrder.forEach((a, i) => { ReffC[a][c] = effR[i]; RtotC[a][c] = totR[i]; });
   });
 
+  // Combine tip+fee per category, then distribute to assignees proportional to their share
   const grandTot = cats.reduce((s, c) => s + effByCat[c] + taxByCat[c], 0);
-  const effCents = reconcileCents(cats.map(c => effByCat[c]), cats.reduce((s, c) => s + effByCat[c], 0), 'eff');
   const tipExact = cats.map(c => grandTot > 1e-9 ? (effByCat[c] + taxByCat[c]) / grandTot * tipVal : 0);
   const feeExact = cats.map(c => grandTot > 1e-9 ? (effByCat[c] + taxByCat[c]) / grandTot * feeVal : 0);
   const tipCents = reconcileCents(tipExact, grandTot > 1e-9 ? tipVal : 0, 'tip');
   const feeCents = reconcileCents(feeExact, grandTot > 1e-9 ? feeVal : 0, 'fee');
-  const idxOf = {}; cats.forEach((c, i) => { idxOf[c] = i; });
+  const tfCents  = cats.map((c, i) => tipCents[i] + feeCents[i]); // tip+fee combined per category
 
-  let hdr = '<tr><th class="th-left">Assignee</th>';
-  cats.forEach(c => { hdr += `<th>${esc(c)}</th>`; });
+  // Distribute tip+fee within each category proportionally by assignee share
+  const RfeeC = {};
+  asgnOrder.forEach(a => { RfeeC[a] = {}; });
+  cats.forEach((c, i) => {
+    const catTotC = asgnOrder.reduce((s, a) => s + RtotC[a][c], 0);
+    const feeVals = asgnOrder.map(a => catTotC > 0 ? (RtotC[a][c] / catTotC) * (tfCents[i] / 100) : 0);
+    const feeR    = reconcileCents(feeVals, tfCents[i] / 100, 'tf:' + c);
+    asgnOrder.forEach((a, j) => { RfeeC[a][c] = feeR[j]; });
+  });
+
+  // Build header: (blank) | asgn… | Total
+  let hdr = '<tr><th class="th-left"></th>';
+  asgnOrder.forEach(a => { hdr += `<th>${esc(a)}</th>`; });
   hdr += '<th>Total</th></tr>';
   document.getElementById('cat-matrix-thead').innerHTML = hdr;
 
-  const catTotC = {}; cats.forEach(c => { catTotC[c] = 0; });
-  let grandC = 0, body = '';
-  asgnOrder.forEach(a => {
-    let rowC = 0;
-    body += `<tr><td class="td-left">${esc(a)}</td>`;
-    cats.forEach(c => {
-      const cents = R[a][c];
-      rowC += cents; catTotC[c] += cents;
-      body += `<td class="computed">${cents !== 0 ? fmtC(cents) : '<span class="muted">—</span>'}</td>`;
-    });
-    grandC += rowC;
-    body += `<td class="computed strong">${fmtC(rowC)}</td></tr>`;
+  // Build body: 4 rows per category, then 4 grand-total rows
+  const cell  = (v, cls = '')  => `<td class="computed${cls ? ' ' + cls : ''}">${v !== 0 ? fmtC(v) : '<span class="muted">—</span>'}</td>`;
+  const cellS = (v, cls = '')  => `<td class="computed strong${cls ? ' ' + cls : ''}">${fmtC(v)}</td>`;
+  const sep   = () => `<tr class="cat-separator"><td colspan="${ncols}"></td></tr>`;
+
+  // Per-asgn grand accumulators
+  const asgnEffC = {}; asgnOrder.forEach(a => { asgnEffC[a] = 0; });
+  const asgnTotC = {}; asgnOrder.forEach(a => { asgnTotC[a] = 0; });
+  const asgnFeeC = {}; asgnOrder.forEach(a => { asgnFeeC[a] = 0; });
+
+  let body = '';
+  cats.forEach((c, i) => {
+    const effTot = asgnOrder.reduce((s, a) => s + ReffC[a][c], 0);
+    const totTot = asgnOrder.reduce((s, a) => s + RtotC[a][c], 0);
+    const taxTot = totTot - effTot;
+    const feeTot = tfCents[i];
+    const sumTot = totTot + feeTot;
+
+    // Subtotal row
+    body += `<tr><td class="td-left">${esc(c)}</td>`;
+    asgnOrder.forEach(a => { body += cell(ReffC[a][c]); asgnEffC[a] += ReffC[a][c]; });
+    body += cellS(effTot) + '</tr>';
+
+    // Tax row
+    body += `<tr><td class="td-left cat-sub-label">${esc(c)} Tax</td>`;
+    asgnOrder.forEach(a => { body += cell(RtotC[a][c] - ReffC[a][c]); asgnTotC[a] += RtotC[a][c]; });
+    body += cellS(taxTot) + '</tr>';
+
+    // Fee row (tip + fee combined)
+    body += `<tr><td class="td-left cat-sub-label">${esc(c)} Fee</td>`;
+    asgnOrder.forEach(a => { body += cell(RfeeC[a][c]); asgnFeeC[a] += RfeeC[a][c]; });
+    body += cellS(feeTot) + '</tr>';
+
+    // Sum row
+    body += `<tr class="cat-sum-row"><td class="td-left cat-sum-label">${esc(c)} Sum</td>`;
+    asgnOrder.forEach(a => { body += cellS(RtotC[a][c] + RfeeC[a][c]); });
+    body += cellS(sumTot) + '</tr>';
+
+    if (i < cats.length - 1) body += sep();
   });
 
-  const sumRow = (label, perCat, total, cls) => {
-    let r = `<tr class="${cls}"><td class="td-left">${label}</td>`;
-    cats.forEach(c => { r += `<td class="computed">${fmtC(perCat(c))}</td>`; });
-    r += `<td class="computed">${fmtC(total)}</td></tr>`;
-    return r;
-  };
-  const totTipC = tipCents.reduce((a, b) => a + b, 0);
-  const totFeeC = feeCents.reduce((a, b) => a + b, 0);
-  body += sumRow('Items',  c => catTotC[c], grandC, 'totals-row');
-  body += sumRow('Tip',    c => tipCents[idxOf[c]], totTipC, '');
-  body += sumRow('Fee',    c => feeCents[idxOf[c]], totFeeC, '');
-  body += sumRow('Final',  c => catTotC[c] + tipCents[idxOf[c]] + feeCents[idxOf[c]], grandC + totTipC + totFeeC, 'totals-row');
+  // Grand total rows
+  const gEffC = asgnOrder.reduce((s, a) => s + asgnEffC[a], 0);
+  const gTotC = asgnOrder.reduce((s, a) => s + asgnTotC[a], 0);
+  const gTaxC = gTotC - gEffC;
+  const gFeeC = tfCents.reduce((s, v) => s + v, 0);
+  const gSumC = gTotC + gFeeC;
+
+  body += sep();
+
+  body += `<tr class="totals-row"><td class="td-left">Total</td>`;
+  asgnOrder.forEach(a => { body += cellS(asgnEffC[a]); });
+  body += cellS(gEffC) + '</tr>';
+
+  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Total Tax</td>`;
+  asgnOrder.forEach(a => { body += cell(asgnTotC[a] - asgnEffC[a]); });
+  body += cellS(gTaxC) + '</tr>';
+
+  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Total Fee</td>`;
+  asgnOrder.forEach(a => { body += cell(asgnFeeC[a]); });
+  body += cellS(gFeeC) + '</tr>';
+
+  body += `<tr class="totals-row cat-grand-sum"><td class="td-left">Total Sum</td>`;
+  asgnOrder.forEach(a => { body += cellS(asgnTotC[a] + asgnFeeC[a]); });
+  body += cellS(gSumC) + '</tr>';
+
   document.getElementById('cat-matrix-tbody').innerHTML = body;
 
+  // Grouped view (unchanged)
+  const effCents = reconcileCents(cats.map(c => effByCat[c]), cats.reduce((s, c) => s + effByCat[c], 0), 'eff');
+  const idxOf = {}; cats.forEach((c, i) => { idxOf[c] = i; });
   const line = (label, cents) => `<div class="grp-line"><span>${label}</span><span>${fmtC(cents)}</span></div>`;
   let g = '';
   cats.forEach((c, i) => {
     const subC   = effCents[i];
-    const totC   = catTotC[c];  // use matrix-reconciled total so both views agree
-    const txC    = totC - subC; // derive from totC so Subtotal + Tax = Total exactly
+    const totC   = asgnOrder.reduce((s, a) => s + RtotC[a][c], 0);
+    const txC    = totC - subC;
     const tpC    = tipCents[i];
     const feC    = feeCents[i];
     const finalC = totC + tpC + feC;
