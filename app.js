@@ -306,6 +306,7 @@ function buildMainTable() {
       <div class="row-card-hdr" data-toggle="${i}">
         <span class="row-toggle">${arrow}</span>
         <span class="row-card-summary" data-rh="${i}">${esc(rowSummary(r, c))}</span>
+        <button class="dup-btn" data-dup="${i}" title="Duplicate row">⎘</button>
         <button class="remove-btn" data-remove="${i}" title="Remove row">✕</button>
       </div>
       <div class="row-card-body${collapsed}">
@@ -340,6 +341,7 @@ function buildMainTable() {
         <div class="splits-section">
           ${splitsHtml}
           <button class="add-split-btn" data-add-split="${i}">+ Add Person</button>
+          ${splits.length > 1 ? `<button class="eq-split-btn" data-eq-split="${i}">= Equal</button>` : ''}
         </div>
         <div class="row-line">
           <div class="row-field">
@@ -440,7 +442,7 @@ function rebuildCardSplits(idx) {
   }).join('');
 
   const section = card.querySelector('.splits-section');
-  section.innerHTML = splitsHtml + `<button class="add-split-btn" data-add-split="${idx}">+ Add Person</button>`;
+  section.innerHTML = splitsHtml + `<button class="add-split-btn" data-add-split="${idx}">+ Add Person</button>` + (splits.length > 1 ? `<button class="eq-split-btn" data-eq-split="${idx}">= Equal</button>` : '');
   attachAllCombos(section);
 
   refreshMainComputeds();
@@ -810,6 +812,28 @@ mainCards.addEventListener('click', e => {
       const nextPerson = people.find(p => !usedNames.has(p)) || DEFAULT_PEOPLE.find(p => !usedNames.has(p)) || '';
       splits.push({ assignee: nextPerson, fraction: '1' });
       applyEqualFractions(splits);
+      rebuildCardSplits(idx);
+    }
+    return;
+  }
+  const dupBtn = e.target.closest('[data-dup]');
+  if (dupBtn) {
+    const idx = parseInt(dupBtn.dataset.dup, 10);
+    if (!isNaN(idx) && rows[idx]) {
+      const src = rows[idx];
+      rows.splice(idx + 1, 0, { ...src, _collapsed: false, splits: rowSplits(src).map(s => ({ ...s })) });
+      fullRender();
+      const el = document.querySelector(`[data-row="${idx + 1}"][data-col="amount"]`);
+      if (el) { el.focus(); el.select(); }
+    }
+    return;
+  }
+  const eqBtn = e.target.closest('[data-eq-split]');
+  if (eqBtn) {
+    const idx = parseInt(eqBtn.dataset.eqSplit, 10);
+    if (!isNaN(idx) && rows[idx]) {
+      if (!rows[idx].splits) rows[idx].splits = rowSplits(rows[idx]);
+      applyEqualFractions(rows[idx].splits);
       rebuildCardSplits(idx);
     }
     return;

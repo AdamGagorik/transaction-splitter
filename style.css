@@ -185,6 +185,19 @@ select:focus {
 }
 .remove-btn:hover { background: #fee2e2; }
 
+.dup-btn {
+  background: #f0f4ff;
+  color: #6366f1;
+  border: 1px solid #c7d2fe;
+  border-radius: 4px;
+  padding: 3px 8px;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 1.4;
+  transition: background 0.1s;
+}
+.dup-btn:hover { background: #e0e7ff; }
+
 .btn-row { display: flex; gap: 8px; margin-top: 14px; }
 
 .btn-primary {
@@ -292,6 +305,8 @@ select:focus {
 .remove-split-btn:hover { background: #fee2e2; }
 .add-split-btn { background: none; border: 1px dashed #cbd5e1; color: #64748b; border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer; align-self: flex-start; margin-top: 2px; }
 .add-split-btn:hover { border-color: #6366f1; color: #6366f1; background: #f5f3ff; }
+.eq-split-btn { background: none; border: 1px dashed #c7d2fe; color: #6366f1; border-radius: 5px; padding: 4px 10px; font-size: 12px; cursor: pointer; align-self: flex-start; margin-top: 2px; }
+.eq-split-btn:hover { border-color: #6366f1; background: #f5f3ff; }
 .num-input:disabled {
   background: #f1f5f9;
   color: #cbd5e1;
@@ -554,7 +569,7 @@ td.computed.strong { font-weight: 700; color: #1e293b; }
   @page { size: landscape; margin: 10mm; }
   body { background: #fff; padding: 0; }
   .card { box-shadow: none; border: 1px solid #e2e8f0; }
-  .no-print, .btn-row, .tabs, .remove-btn { display: none !important; }
+  .no-print, .btn-row, .tabs, .remove-btn, .dup-btn, .eq-split-btn { display: none !important; }
   #main-tab-split     { display: block !important; }
   #main-tab-config    { display: none  !important; }
   #main-tab-ynab      { display: none  !important; }
