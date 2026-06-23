@@ -549,16 +549,16 @@ function buildCategoryTable() {
   const feeExact = cats.map(c => grandTot > 1e-9 ? (effByCat[c] + taxByCat[c]) / grandTot * feeVal : 0);
   const tipCents = reconcileCents(tipExact, grandTot > 1e-9 ? tipVal : 0, 'tip');
   const feeCents = reconcileCents(feeExact, grandTot > 1e-9 ? feeVal : 0, 'fee');
-  const tfCents  = cats.map((c, i) => tipCents[i] + feeCents[i]); // tip+fee combined per category
-
-  // Distribute tip+fee within each category proportionally by assignee share
-  const RfeeC = {};
-  asgnOrder.forEach(a => { RfeeC[a] = {}; });
+  // Distribute tip and fee separately within each category proportionally by assignee share
+  const RtipC = {}, RfeeC = {};
+  asgnOrder.forEach(a => { RtipC[a] = {}; RfeeC[a] = {}; });
   cats.forEach((c, i) => {
     const catTotC = asgnOrder.reduce((s, a) => s + RtotC[a][c], 0);
-    const feeVals = asgnOrder.map(a => catTotC > 0 ? (RtotC[a][c] / catTotC) * (tfCents[i] / 100) : 0);
-    const feeR    = reconcileCents(feeVals, tfCents[i] / 100, 'tf:' + c);
-    asgnOrder.forEach((a, j) => { RfeeC[a][c] = feeR[j]; });
+    const tipVals = asgnOrder.map(a => catTotC > 0 ? (RtotC[a][c] / catTotC) * (tipCents[i] / 100) : 0);
+    const feeVals = asgnOrder.map(a => catTotC > 0 ? (RtotC[a][c] / catTotC) * (feeCents[i] / 100) : 0);
+    const tipR = reconcileCents(tipVals, tipCents[i] / 100, 'tip:' + c);
+    const feeR = reconcileCents(feeVals, feeCents[i] / 100, 'fee:' + c);
+    asgnOrder.forEach((a, j) => { RtipC[a][c] = tipR[j]; RfeeC[a][c] = feeR[j]; });
   });
 
   // Build header: (blank) | asgn… | Total
@@ -567,7 +567,7 @@ function buildCategoryTable() {
   hdr += '<th>Total</th></tr>';
   document.getElementById('cat-matrix-thead').innerHTML = hdr;
 
-  // Build body: 4 rows per category, then 4 grand-total rows
+  // Build body: 5 rows per category, then 5 grand-total rows
   const cell  = (v, cls = '')  => `<td class="computed${cls ? ' ' + cls : ''}">${v !== 0 ? fmtC(v) : '<span class="muted">—</span>'}</td>`;
   const cellS = (v, cls = '')  => `<td class="computed strong${cls ? ' ' + cls : ''}">${fmtC(v)}</td>`;
   const sep   = () => `<tr class="cat-separator"><td colspan="${ncols}"></td></tr>`;
@@ -575,6 +575,7 @@ function buildCategoryTable() {
   // Per-asgn grand accumulators
   const asgnEffC = {}; asgnOrder.forEach(a => { asgnEffC[a] = 0; });
   const asgnTotC = {}; asgnOrder.forEach(a => { asgnTotC[a] = 0; });
+  const asgnTipC = {}; asgnOrder.forEach(a => { asgnTipC[a] = 0; });
   const asgnFeeC = {}; asgnOrder.forEach(a => { asgnFeeC[a] = 0; });
 
   let body = '';
@@ -582,27 +583,33 @@ function buildCategoryTable() {
     const effTot = asgnOrder.reduce((s, a) => s + ReffC[a][c], 0);
     const totTot = asgnOrder.reduce((s, a) => s + RtotC[a][c], 0);
     const taxTot = totTot - effTot;
-    const feeTot = tfCents[i];
-    const sumTot = totTot + feeTot;
+    const tipTot = tipCents[i];
+    const feeTot = feeCents[i];
+    const sumTot = totTot + tipTot + feeTot;
 
-    // Subtotal row
-    body += `<tr><td class="td-left">${esc(c)}</td>`;
+    // Cat row (underlined)
+    body += `<tr><td class="td-left cat-name-label">${esc(c)}</td>`;
     asgnOrder.forEach(a => { body += cell(ReffC[a][c]); asgnEffC[a] += ReffC[a][c]; });
     body += cellS(effTot) + '</tr>';
 
     // Tax row
-    body += `<tr><td class="td-left cat-sub-label">${esc(c)} Tax</td>`;
+    body += `<tr><td class="td-left cat-sub-label">Tax</td>`;
     asgnOrder.forEach(a => { body += cell(RtotC[a][c] - ReffC[a][c]); asgnTotC[a] += RtotC[a][c]; });
     body += cellS(taxTot) + '</tr>';
 
-    // Fee row (tip + fee combined)
-    body += `<tr><td class="td-left cat-sub-label">${esc(c)} Fee</td>`;
+    // Tip row
+    body += `<tr><td class="td-left cat-sub-label">Tip</td>`;
+    asgnOrder.forEach(a => { body += cell(RtipC[a][c]); asgnTipC[a] += RtipC[a][c]; });
+    body += cellS(tipTot) + '</tr>';
+
+    // Fee row
+    body += `<tr><td class="td-left cat-sub-label">Fee</td>`;
     asgnOrder.forEach(a => { body += cell(RfeeC[a][c]); asgnFeeC[a] += RfeeC[a][c]; });
     body += cellS(feeTot) + '</tr>';
 
-    // Sum row
-    body += `<tr class="cat-sum-row"><td class="td-left cat-sum-label">${esc(c)} Sum</td>`;
-    asgnOrder.forEach(a => { body += cellS(RtotC[a][c] + RfeeC[a][c]); });
+    // Sum row (bold)
+    body += `<tr class="cat-sum-row"><td class="td-left cat-sum-label">Sum</td>`;
+    asgnOrder.forEach(a => { body += cellS(RtotC[a][c] + RtipC[a][c] + RfeeC[a][c]); });
     body += cellS(sumTot) + '</tr>';
 
     if (i < cats.length - 1) body += sep();
@@ -612,8 +619,9 @@ function buildCategoryTable() {
   const gEffC = asgnOrder.reduce((s, a) => s + asgnEffC[a], 0);
   const gTotC = asgnOrder.reduce((s, a) => s + asgnTotC[a], 0);
   const gTaxC = gTotC - gEffC;
-  const gFeeC = tfCents.reduce((s, v) => s + v, 0);
-  const gSumC = gTotC + gFeeC;
+  const gTipC = tipCents.reduce((s, v) => s + v, 0);
+  const gFeeC = feeCents.reduce((s, v) => s + v, 0);
+  const gSumC = gTotC + gTipC + gFeeC;
 
   body += sep();
 
@@ -621,16 +629,20 @@ function buildCategoryTable() {
   asgnOrder.forEach(a => { body += cellS(asgnEffC[a]); });
   body += cellS(gEffC) + '</tr>';
 
-  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Total Tax</td>`;
+  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Tax</td>`;
   asgnOrder.forEach(a => { body += cell(asgnTotC[a] - asgnEffC[a]); });
   body += cellS(gTaxC) + '</tr>';
 
-  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Total Fee</td>`;
+  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Tip</td>`;
+  asgnOrder.forEach(a => { body += cell(asgnTipC[a]); });
+  body += cellS(gTipC) + '</tr>';
+
+  body += `<tr class="totals-row"><td class="td-left cat-sub-label">Fee</td>`;
   asgnOrder.forEach(a => { body += cell(asgnFeeC[a]); });
   body += cellS(gFeeC) + '</tr>';
 
-  body += `<tr class="totals-row cat-grand-sum"><td class="td-left">Total Sum</td>`;
-  asgnOrder.forEach(a => { body += cellS(asgnTotC[a] + asgnFeeC[a]); });
+  body += `<tr class="totals-row cat-grand-sum"><td class="td-left">Sum</td>`;
+  asgnOrder.forEach(a => { body += cellS(asgnTotC[a] + asgnTipC[a] + asgnFeeC[a]); });
   body += cellS(gSumC) + '</tr>';
 
   document.getElementById('cat-matrix-tbody').innerHTML = body;

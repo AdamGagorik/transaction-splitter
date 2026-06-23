@@ -83,8 +83,9 @@ tr.totals-row td.computed { background: #e8edff; }
 
 /* Category matrix sub-rows */
 tr.cat-separator td { padding: 0; height: 8px; background: transparent; border: none; }
-td.cat-sub-label  { color: #64748b; padding-left: 20px !important; font-size: 12px; }
-td.cat-sum-label  { font-weight: 700; }
+td.cat-name-label { text-decoration: underline; }
+td.cat-sub-label  { color: #64748b; padding-left: 1.1em; font-size: 12px; }
+td.cat-sum-label  { padding-left: 1.1em; font-weight: 700; }
 tr.cat-sum-row td { border-top: 1px solid #e2e8f0; }
 tr.cat-grand-sum td { border-top: 2px solid #c7d2fe; }
 
