@@ -247,6 +247,32 @@ function attachAllCombos(container) {
   container.querySelectorAll('[data-combo="categories"]').forEach(el => attachCombo(el, categories));
 }
 
+function attachCardButtons(container) {
+  container.querySelectorAll('.dup-btn').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.dup, 10);
+      if (!isNaN(idx) && rows[idx]) {
+        const src = rows[idx];
+        rows.splice(idx + 1, 0, { ...src, _collapsed: false, splits: rowSplits(src).map(s => ({ ...s })) });
+        fullRender();
+        const el = document.querySelector(`[data-row="${idx + 1}"][data-col="amount"]`);
+        if (el) { el.focus(); el.select(); }
+      }
+    });
+  });
+  container.querySelectorAll('.eq-split-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.eqSplit, 10);
+      if (!isNaN(idx) && rows[idx]) {
+        if (!rows[idx].splits) rows[idx].splits = rowSplits(rows[idx]);
+        applyEqualFractions(rows[idx].splits);
+        fullRender();
+      }
+    });
+  });
+}
+
 function shortCategory(cat) {
   if (!cat) return '';
   const parts = cat.split(':');
@@ -371,6 +397,7 @@ function buildMainTable() {
 
   container.innerHTML = html;
   attachAllCombos(container);
+  attachCardButtons(container);
 
   const totLine = document.getElementById('cards-total-line');
   const totEl   = document.getElementById('tot-tot');
@@ -813,28 +840,6 @@ mainCards.addEventListener('click', e => {
       splits.push({ assignee: nextPerson, fraction: '1' });
       applyEqualFractions(splits);
       rebuildCardSplits(idx);
-    }
-    return;
-  }
-  const dupBtn = e.target.closest('[data-dup]');
-  if (dupBtn) {
-    const idx = parseInt(dupBtn.dataset.dup, 10);
-    if (!isNaN(idx) && rows[idx]) {
-      const src = rows[idx];
-      rows.splice(idx + 1, 0, { ...src, _collapsed: false, splits: rowSplits(src).map(s => ({ ...s })) });
-      fullRender();
-      const el = document.querySelector(`[data-row="${idx + 1}"][data-col="amount"]`);
-      if (el) { el.focus(); el.select(); }
-    }
-    return;
-  }
-  const eqBtn = e.target.closest('[data-eq-split]');
-  if (eqBtn) {
-    const idx = parseInt(eqBtn.dataset.eqSplit, 10);
-    if (!isNaN(idx) && rows[idx]) {
-      if (!rows[idx].splits) rows[idx].splits = rowSplits(rows[idx]);
-      applyEqualFractions(rows[idx].splits);
-      fullRender();
     }
     return;
   }
