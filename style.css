@@ -83,14 +83,13 @@ tr.totals-row td.computed { background: #e8edff; }
 
 /* Category matrix sub-rows */
 tr.cat-separator td   { padding: 0; height: 8px; background: transparent; border: none; }
-td.cat-name-label     { text-decoration: underline; }
-td.cat-name-label::before { content: '▾ '; font-size: 10px; color: #94a3b8; text-decoration: none; display: inline-block; }
+td.cat-name-label     { font-weight: 700; }
+td.cat-name-label::before { content: '▾ '; font-size: 10px; color: #94a3b8; font-weight: 400; display: inline-block; }
 tr.cat-head-row       { cursor: pointer; user-select: none; }
 tr.cat-head-row:hover td { background: #f1f5f9; }
 tr.cat-collapsed td.cat-name-label::before { content: '▸ '; }
 td.cat-sub-label      { color: #64748b; padding-left: 1.1em; font-size: 12px; }
 td.cat-sum-label      { padding-left: 1.1em; font-weight: 700; }
-.cat-sigma            { font-size: 12px; color: #94a3b8; font-weight: 400; text-decoration: none; display: inline-block; }
 tr.cat-grand-row td   { background: #f8fafc; color: #475569; }
 tr.cat-grand-row td.computed { background: #f1f5f9; }
 tr.cat-grand-start td { border-top: 2px solid #e2e8f0; }

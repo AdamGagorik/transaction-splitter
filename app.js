@@ -588,7 +588,7 @@ function buildCategoryTable() {
     const sumTot = totTot + tipTot + feeTot;
 
     // Cat Σ row — shows sum, collapses detail rows
-    body += `<tr class="cat-head-row" data-cat-toggle="${i}"><td class="td-left cat-name-label">${esc(c)} <span class="cat-sigma">Σ</span></td>`;
+    body += `<tr class="cat-head-row" data-cat-toggle="${i}"><td class="td-left cat-name-label">${esc(c)}</td>`;
     asgnOrder.forEach(a => {
       const aSum = RtotC[a][c] + RtipC[a][c] + RfeeC[a][c];
       body += cellS(aSum);
@@ -630,7 +630,7 @@ function buildCategoryTable() {
 
   body += sep();
 
-  body += `<tr class="cat-grand-row cat-grand-start"><td class="td-left cat-name-label">Total <span class="cat-sigma">Σ</span></td>`;
+  body += `<tr class="cat-grand-row cat-grand-start"><td class="td-left cat-name-label">Total</td>`;
   asgnOrder.forEach(a => { body += cellS(asgnTotC[a] + asgnTipC[a] + asgnFeeC[a]); });
   body += cellS(gSumC) + '</tr>';
 
