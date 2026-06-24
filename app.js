@@ -958,36 +958,51 @@ document.getElementById('fee-input').addEventListener('input', onTipFee);
 document.getElementById('pdf-btn').addEventListener('click', () => { window.print(); });
 
 document.getElementById('csv-btn').addEventListener('click', () => {
-  const comp = rows.map(computeRow);
+  const { tipVal, feeVal, aOrder, aSub, cEff, cTax, grand, shareOf, cats, tipCentsArr, feeCentsArr } = buildEmailData();
   const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
-  const lines = ['Amount,Payee,Category,Memo,Taxed,Tax Rate,Assignee,Fraction,Subtotal,Tax,Total'];
-  rows.forEach((r, i) => {
-    const rate = rowRate(r) * 100;
-    rowSplits(r).forEach((s, j) => {
-      const sc = comp[i].splits[j];
-      lines.push([
-        q(r.amount),
-        q(norm(r.payee, '')),
-        q(norm(r.category, '')),
-        q(norm(r.memo, '')),
-        r.taxed ? 'Yes' : 'No',
-        r.taxed ? rate.toFixed(2) + '%' : '',
-        q(norm(s.assignee, '(unassigned)')),
-        q(s.fraction),
-        sc.eff.toFixed(2),
-        sc.tax.toFixed(2),
-        sc.total.toFixed(2),
-      ].join(','));
+  const lines = [];
+
+  if (cats.length) {
+    const totalEff = cats.reduce((s, c) => s + cEff[c], 0);
+    const totalTax = cats.reduce((s, c) => s + cTax[c], 0);
+    const totalAmt = totalEff + totalTax;
+    lines.push('BY CATEGORY');
+    lines.push('Category,Subtotal,Tax,Items,Tip,Fee,Total');
+    cats.forEach(c => {
+      const amt = cEff[c] + cTax[c];
+      const tip = shareOf(amt) * tipVal;
+      const fee = shareOf(amt) * feeVal;
+      lines.push([q(c), cEff[c].toFixed(2), cTax[c].toFixed(2), amt.toFixed(2), tip.toFixed(2), fee.toFixed(2), (amt + tip + fee).toFixed(2)].join(','));
     });
-  });
+    lines.push(['Total', totalEff.toFixed(2), totalTax.toFixed(2), totalAmt.toFixed(2), tipVal.toFixed(2), feeVal.toFixed(2), (totalAmt + tipVal + feeVal).toFixed(2)].join(','));
+    lines.push('');
+  }
+
+  if (aOrder.length) {
+    lines.push('BY PERSON');
+    lines.push('Person,Subtotal,Tip,Fee,Total');
+    aOrder.forEach((a, idx) => {
+      const tip = tipCentsArr[idx] / 100;
+      const fee = feeCentsArr[idx] / 100;
+      lines.push([q(a), aSub[a].toFixed(2), tip.toFixed(2), fee.toFixed(2), (aSub[a] + tip + fee).toFixed(2)].join(','));
+    });
+    lines.push(['Total', grand.toFixed(2), tipVal.toFixed(2), feeVal.toFixed(2), (grand + tipVal + feeVal).toFixed(2)].join(','));
+  }
+
+  if (lines.length === 0) lines.push('No data');
+
   const blob = new Blob([lines.join('\r\n')], { type: 'text/csv' });
   const a = Object.assign(document.createElement('a'), {
     href: URL.createObjectURL(blob),
-    download: 'transactions.csv',
+    download: 'category-summary.csv',
   });
   document.body.appendChild(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+});
+
+document.getElementById('copy-summary-btn').addEventListener('click', e => {
+  clipboardWrite(buildSummaryMarkdown(), emailSummaryHTML(), e.currentTarget);
 });
 
 /* ── Per-person clipboard copy ── */
@@ -1225,6 +1240,42 @@ function buildSinglePersonSummaryHTML(person) {
   }
   html += '</div>';
   return html;
+}
+
+function buildSummaryMarkdown() {
+  const { tipVal, feeVal, aOrder, aSub, cEff, cTax, grand, shareOf, cats, tipCentsArr, feeCentsArr } = buildEmailData();
+  const lines = [];
+  lines.push(`**Transaction Summary** — Items ${fmt(grand)} + Tip ${fmt(tipVal)} + Fee ${fmt(feeVal)} = **${fmt(grand + tipVal + feeVal)}**`);
+  lines.push('');
+
+  if (cats.length) {
+    const totalEff = cats.reduce((s, c) => s + cEff[c], 0);
+    const totalTax = cats.reduce((s, c) => s + cTax[c], 0);
+    const totalAmt = totalEff + totalTax;
+    lines.push('**By Category**', '');
+    lines.push('| Category | Subtotal | Tax | Items | Tip | Fee | Total |');
+    lines.push('|---|---:|---:|---:|---:|---:|---:|');
+    cats.forEach(c => {
+      const amt = cEff[c] + cTax[c];
+      const tip = shareOf(amt) * tipVal;
+      const fee = shareOf(amt) * feeVal;
+      lines.push(`| ${c} | ${fmt(cEff[c])} | ${fmt(cTax[c])} | ${fmt(amt)} | ${fmt(tip)} | ${fmt(fee)} | ${fmt(amt + tip + fee)} |`);
+    });
+    lines.push(`| **Total** | **${fmt(totalEff)}** | **${fmt(totalTax)}** | **${fmt(totalAmt)}** | **${fmt(tipVal)}** | **${fmt(feeVal)}** | **${fmt(totalAmt + tipVal + feeVal)}** |`);
+    lines.push('');
+  }
+
+  lines.push('**By Person**', '');
+  lines.push('| Person | Subtotal | Tip | Fee | Total |');
+  lines.push('|---|---:|---:|---:|---:|');
+  aOrder.forEach((a, idx) => {
+    const tip = tipCentsArr[idx] / 100;
+    const fee = feeCentsArr[idx] / 100;
+    lines.push(`| ${a} | ${fmt(aSub[a])} | ${fmt(tip)} | ${fmt(fee)} | ${fmt(aSub[a] + tip + fee)} |`);
+  });
+  lines.push(`| **Total** | **${fmt(grand)}** | **${fmt(tipVal)}** | **${fmt(feeVal)}** | **${fmt(grand + tipVal + feeVal)}** |`);
+
+  return lines.join('\n');
 }
 
 function clipboardWrite(text, html, btn) {
